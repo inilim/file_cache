@@ -30,7 +30,7 @@ class FileCache
     */
    public function get($id): mixed
    {
-      $id = strval($id);
+      $id        = strval($id);
       $path_file = $this->getPathFileByID($id);
       return $this->read($path_file);
    }
@@ -73,9 +73,9 @@ class FileCache
     */
    public function getFromClaster($id, $claster_name): mixed
    {
-      $id = strval($id);
+      $id           = strval($id);
       $claster_name = strval($claster_name);
-      $path_file = $this->getPathFileByIDFromClaster($id, $claster_name);
+      $path_file    = $this->getPathFileByIDFromClaster($id, $claster_name);
       return $this->read($path_file);
    }
 
@@ -85,7 +85,7 @@ class FileCache
     */
    public function existByID($id): bool
    {
-      $id = strval($id);
+      $id        = strval($id);
       $path_file = $this->getPathFileByID($id);
       if (!is_file($path_file)) return false;
       if (@filemtime($path_file) > time()) return true;
@@ -99,9 +99,9 @@ class FileCache
     */
    public function existByIDFromClaster($id, $claster_name): bool
    {
-      $id = strval($id);
+      $id           = strval($id);
       $claster_name = strval($claster_name);
-      $path_file = $this->getPathFileByIDFromClaster($id, $claster_name);
+      $path_file    = $this->getPathFileByIDFromClaster($id, $claster_name);
       if (!is_file($path_file)) return false;
       if (@filemtime($path_file) > time()) return true;
       return false;
@@ -114,7 +114,7 @@ class FileCache
     */
    public function deleteByID($id): void
    {
-      $id = strval($id);
+      $id        = strval($id);
       $path_file = $this->getPathFileByID($id);
       @unlink($path_file);
    }
@@ -125,9 +125,9 @@ class FileCache
     */
    public function deleteByIDFromClaster($id, $claster_name): void
    {
-      $id = strval($id);
+      $id           = strval($id);
       $claster_name = strval($claster_name);
-      $path_file = $this->getPathFileByIDFromClaster($id, $claster_name);
+      $path_file    = $this->getPathFileByIDFromClaster($id, $claster_name);
       @unlink($path_file);
    }
 
@@ -152,7 +152,7 @@ class FileCache
     */
    public function deleteAllByNameFromClaster($name): void
    {
-      $list_dir = glob($this->getClasterDirByName(strval($name)) . '/*');
+      $list_dir   = glob($this->getClasterDirByName(strval($name)) . '/*');
       if ($list_dir === false) return;
       $list_files = array_map(fn ($d) => glob($d . '/*.cache'), $list_dir);
       $list_files = array_filter($list_files, fn ($item) => is_array($item));
@@ -168,7 +168,7 @@ class FileCache
     */
    public function save($id, $data, int $lifetime = 3600): bool
    {
-      $id = strval($id);
+      $id  = strval($id);
       $dir = $this->getDirByID($id);
       if (!$this->createDir($dir)) return false;
       $path_file  = $this->getPathFileByID($id);
@@ -183,9 +183,9 @@ class FileCache
     */
    public function saveToClaster($id, $claster_name, mixed $data, int $lifetime = 3600): bool
    {
-      $id = strval($id);
+      $id           = strval($id);
       $claster_name = strval($claster_name);
-      $dir = $this->getClasterDirByIDAndClasterName($id, $claster_name);
+      $dir          = $this->getClasterDirByIDAndClasterName($id, $claster_name);
       if (!$this->createDir($dir)) return false;
       $path_file  = $this->getPathFileByIDFromClaster($id, $claster_name);
       return $this->saveData($path_file, $data, $lifetime);
