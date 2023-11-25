@@ -228,11 +228,6 @@ class FileCache
       return $file;
    }
 
-   protected function counterRead(): void
-   {
-      $this->count_read++;
-   }
-
    /**
     */
    protected function read(string $path_file): mixed
@@ -247,7 +242,7 @@ class FileCache
             if ($cache_value === false) $cache_value = '';
             @flock($fp, LOCK_UN);
             @fclose($fp);
-            $this->counterRead();
+            $this->count_read++;
             return unserialize($cache_value);
          }
       }
