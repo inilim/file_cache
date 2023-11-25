@@ -6,7 +6,7 @@ use Closure;
 
 class FileCache
 {
-   private int $count_read = 0;
+   protected int $count_read = 0;
    /**
     * Creates a FileCache object
     */
@@ -14,7 +14,7 @@ class FileCache
       /**
        * The root cache directory.
        */
-      private string $cache_dir = '/cache'
+      protected string $cache_dir = '/cache'
    ) {
    }
 
@@ -24,11 +24,8 @@ class FileCache
    }
 
    /**
-    * Fetches an entry from the cache.
-    *
-    * @param string|int|float $id
     */
-   public function get($id): mixed
+   public function get(string|int|float $id): mixed
    {
       $id        = strval($id);
       $path_file = $this->getPathFileByID($id);
@@ -36,11 +33,8 @@ class FileCache
    }
 
    /**
-    * Fetches an entry from the cache.
-    *
-    * @param string|int|float $id
     */
-   public function getOrSave($id, Closure $data, int $lifetime = 3600): mixed
+   public function getOrSave(string|int|float $id, Closure $data, int $lifetime = 3600): mixed
    {
       $res = $this->get($id);
       if (is_null($res)) {
@@ -52,10 +46,8 @@ class FileCache
    }
 
    /**
-    * @param string|int|float $id
-    * @param string|int|float $claster_name
     */
-   public function getOrSaveFromClaster($id, $claster_name, Closure $data, int $lifetime = 3600): mixed
+   public function getOrSaveFromClaster(string|int|float $id, string|int|float $claster_name, Closure $data, int $lifetime = 3600): mixed
    {
       $res = $this->getFromClaster($id, $claster_name);
       if (is_null($res)) {
@@ -68,10 +60,8 @@ class FileCache
 
 
    /**
-    * @param string|int|float $id
-    * @param string|int|float $claster_name
     */
-   public function getFromClaster($id, $claster_name): mixed
+   public function getFromClaster(string|int|float $id, string|int|float $claster_name): mixed
    {
       $id           = strval($id);
       $claster_name = strval($claster_name);
@@ -81,9 +71,8 @@ class FileCache
 
    /**
     * существует ли еще файл
-    * @param string|int|float $id
     */
-   public function existByID($id): bool
+   public function existByID(string|int|float $id): bool
    {
       $id        = strval($id);
       $path_file = $this->getPathFileByID($id);
@@ -93,11 +82,8 @@ class FileCache
    }
 
    /**
-    * @param string|int|float $id
-    * @param string|int|float $claster_name
-    * @return boolean
     */
-   public function existByIDFromClaster($id, $claster_name): bool
+   public function existByIDFromClaster(string|int|float $id, string|int|float $claster_name): bool
    {
       $id           = strval($id);
       $claster_name = strval($claster_name);
@@ -108,11 +94,8 @@ class FileCache
    }
 
    /**
-    * Deletes a cache entry.
-    *
-    * @param string|int|float $id
     */
-   public function deleteByID($id): void
+   public function deleteByID(string|int|float $id): void
    {
       $id        = strval($id);
       $path_file = $this->getPathFileByID($id);
@@ -120,10 +103,8 @@ class FileCache
    }
 
    /**
-    * @param string|int|float $id
-    * @param string|int|float $claster_name
     */
-   public function deleteByIDFromClaster($id, $claster_name): void
+   public function deleteByIDFromClaster(string|int|float $id, string|int|float $claster_name): void
    {
       $id           = strval($id);
       $claster_name = strval($claster_name);
@@ -148,9 +129,8 @@ class FileCache
    }
 
    /**
-    * @param string|int|float $name
     */
-   public function deleteAllByNameFromClaster($name): void
+   public function deleteAllByNameFromClaster(string|int|float $name): void
    {
       $list_dir   = glob($this->getClasterDirByName(strval($name)) . '/*');
       if ($list_dir === false) return;
@@ -161,33 +141,26 @@ class FileCache
    }
 
    /**
-    * Puts data into the cache.
-    *
-    * @param string|int|float $id
     * @param mixed  $data
     */
-   public function save($id, $data, int $lifetime = 3600): bool
+   public function save(string|int|float $id, $data, int $lifetime = 3600): bool
    {
-      $id  = strval($id);
-      $dir = $this->getDirByID($id);
+      $id   = strval($id);
+      $dir  = $this->getDirByID($id);
       if (!$this->createDir($dir)) return false;
-      $path_file  = $this->getPathFileByID($id);
+      $path_file = $dir . DIRECTORY_SEPARATOR . sha1($id, false) . '.cache';
       return $this->saveData($path_file, $data, $lifetime);
    }
 
    /**
-    * Puts data into the cache.
-    *
-    * @param string|int|float $id
-    * @param string|int|float $claster_name
     */
-   public function saveToClaster($id, $claster_name, mixed $data, int $lifetime = 3600): bool
+   public function saveToClaster(string|int|float $id, string|int|float $claster_name, mixed $data, int $lifetime = 3600): bool
    {
       $id           = strval($id);
       $claster_name = strval($claster_name);
       $dir          = $this->getClasterDirByIDAndClasterName($id, $claster_name);
       if (!$this->createDir($dir)) return false;
-      $path_file  = $this->getPathFileByIDFromClaster($id, $claster_name);
+      $path_file = $dir . DIRECTORY_SEPARATOR . sha1($id, false) . '.cache';
       return $this->saveData($path_file, $data, $lifetime);
    }
 
@@ -237,9 +210,6 @@ class FileCache
       return $this->cache_dir;
    }
 
-   /**
-    * Fetches a file path of the cache data
-    */
    protected function getPathFileByID(string $id): string
    {
       $directory = $this->getDirByID($id);
@@ -294,6 +264,34 @@ class FileCache
    }
 
    protected function saveData(string $path_file, mixed $data, int $lifetime): bool
+   {
+      if (is_null($data)) return false;
+      $dir        = dirname($path_file);
+      $serialized = serialize($data);
+
+      $path_tmp_file = $dir . DIRECTORY_SEPARATOR . uniqid(more_entropy: true);
+      $handle = fopen($path_tmp_file, 'x');
+      if ($handle === false) {
+         @unlink($path_tmp_file);
+         return false;
+      }
+      fwrite($handle, $serialized);
+      fclose($handle);
+
+      @touch($path_tmp_file, $lifetime + time());
+
+      if (rename($path_tmp_file, $path_file) === false) {
+         @unlink($path_tmp_file);
+         return false;
+      }
+
+      return true;
+   }
+
+   /**
+    * старя реализация
+    */
+   protected function _saveData(string $path_file, mixed $data, int $lifetime): bool
    {
       if (is_null($data)) return false;
       $serialized = serialize($data);
