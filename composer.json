@@ -2,7 +2,7 @@
     "name": "inilim/file_cache",
     "description": "file_cache",
     "type": "library",
-    "license": "Free",
+    "license": "MIT",
     "autoload": {
         "psr-4": {
             "Inilim\\": "src/"
