@@ -148,7 +148,7 @@ class FileCache
       $id   = \strval($id);
       $dir  = $this->getDirByID($id);
       if (!$this->createDir($dir)) return false;
-      $path_file = $dir . DIRECTORY_SEPARATOR . \sha1($id, false) . '.cache';
+      $path_file = $dir . DIRECTORY_SEPARATOR . \md5($id, false) . '.cache';
       return $this->saveData($path_file, $data, $lifetime);
    }
 
@@ -160,7 +160,7 @@ class FileCache
       $claster_name = \strval($claster_name);
       $dir          = $this->getClasterDirByIDAndClasterName($id, $claster_name);
       if (!$this->createDir($dir)) return false;
-      $path_file = $dir . DIRECTORY_SEPARATOR . \sha1($id, false) . '.cache';
+      $path_file = $dir . DIRECTORY_SEPARATOR . \md5($id, false) . '.cache';
       return $this->saveData($path_file, $data, $lifetime);
    }
 
@@ -173,7 +173,7 @@ class FileCache
     */
    protected function getDirByID(string $id): string
    {
-      $hash = \sha1($id, false);
+      $hash = \md5($id, false);
       $dirs = [
          $this->getCacheDir(),
          \substr($hash, 0, 2)
@@ -185,7 +185,7 @@ class FileCache
     */
    protected function getClasterDirByIDAndClasterName(string $id, string $name): string
    {
-      $hash = \sha1($id, false);
+      $hash = \md5($id, false);
       $path = $this->getClasterDirByName($name);
       return $path . DIRECTORY_SEPARATOR . \substr($hash, 0, 2);
    }
@@ -197,7 +197,7 @@ class FileCache
       $dirs = [
          $this->getCacheDir(),
          'clasters',
-         \sha1(\strval($name), false),
+         \md5(\strval($name), false),
       ];
       return \implode(DIRECTORY_SEPARATOR, $dirs);
    }
@@ -213,7 +213,7 @@ class FileCache
    protected function getPathFileByID(string $id): string
    {
       $directory = $this->getDirByID($id);
-      $hash      = \sha1($id, false);
+      $hash      = \md5($id, false);
       $file      = $directory . DIRECTORY_SEPARATOR . $hash . '.cache';
       return $file;
    }
@@ -223,7 +223,7 @@ class FileCache
    protected function getPathFileByIDFromClaster(string $id, string $claster_name): string
    {
       $directory = $this->getClasterDirByIDAndClasterName($id, $claster_name);
-      $hash      = \sha1($id, false);
+      $hash      = \md5($id, false);
       $file      = $directory . DIRECTORY_SEPARATOR . $hash . '.cache';
       return $file;
    }
