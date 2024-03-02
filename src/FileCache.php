@@ -6,6 +6,8 @@ use Closure;
 
 class FileCache
 {
+   protected const DIR_SEP = DIRECTORY_SEPARATOR;
+
    protected int $count_read = 0;
    /**
     * Creates a FileCache object
@@ -83,10 +85,10 @@ class FileCache
     */
    public function save(string|int|float $id, $data, int $lifetime = 3600): bool
    {
-      $id   = \strval($id);
-      $dir  = $this->getDirByID($id);
+      $id  = \strval($id);
+      $dir = $this->getDirByID($id);
       if (!$this->createDir($dir)) return false;
-      $path_file = $dir . DIRECTORY_SEPARATOR . \md5($id, false) . '.cache';
+      $path_file = $dir . self::DIR_SEP . \md5($id, false) . '.cache';
       return $this->saveData($path_file, $data, $lifetime);
    }
 
@@ -104,7 +106,7 @@ class FileCache
          $this->getCacheDir(),
          \substr($hash, 0, 2)
       ];
-      return \implode(DIRECTORY_SEPARATOR, $dirs);
+      return \implode(self::DIR_SEP, $dirs);
    }
 
    /**
@@ -119,7 +121,7 @@ class FileCache
    {
       $directory = $this->getDirByID($id);
       $hash      = \md5($id, false);
-      $file      = $directory . DIRECTORY_SEPARATOR . $hash . '.cache';
+      $file      = $directory . self::DIR_SEP . $hash . '.cache';
       return $file;
    }
 
@@ -159,7 +161,7 @@ class FileCache
       $dir        = \dirname($path_file);
       $serialized = \serialize($data);
 
-      $path_tmp_file = $dir . DIRECTORY_SEPARATOR . \uniqid(more_entropy: true);
+      $path_tmp_file = $dir . self::DIR_SEP . \uniqid(more_entropy: true);
       $handle = \fopen($path_tmp_file, 'x');
       if ($handle === false) {
          @\unlink($path_tmp_file);

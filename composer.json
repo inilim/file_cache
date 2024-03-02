@@ -18,6 +18,7 @@
         "php": "^8.2"
     },
     "require-dev": {
-        "phpstan/phpstan": "@stable"
+        "phpstan/phpstan": "@stable",
+        "dragon-code/benchmark": "2.6"
     }
 }

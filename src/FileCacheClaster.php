@@ -72,7 +72,7 @@ class FileCacheClaster extends FileCache
         $claster_name = \strval($claster_name);
         $dir          = $this->getClasterDirByIDAndClasterName($id, $claster_name);
         if (!$this->createDir($dir)) return false;
-        $path_file = $dir . DIRECTORY_SEPARATOR . \md5($id, false) . '.cache';
+        $path_file = $dir . self::DIR_SEP . \md5($id, false) . '.cache';
         return $this->saveData($path_file, $data, $lifetime);
     }
 
@@ -119,7 +119,7 @@ class FileCacheClaster extends FileCache
     {
         $directory = $this->getClasterDirByIDAndClasterName($id, $claster_name);
         $hash      = \md5($id, false);
-        $file      = $directory . DIRECTORY_SEPARATOR . $hash . '.cache';
+        $file      = $directory . self::DIR_SEP . $hash . '.cache';
         return $file;
     }
 
@@ -132,7 +132,7 @@ class FileCacheClaster extends FileCache
             'clasters',
             \md5(\strval($name), false),
         ];
-        return \implode(DIRECTORY_SEPARATOR, $dirs);
+        return \implode(self::DIR_SEP, $dirs);
     }
 
     /**
@@ -141,6 +141,6 @@ class FileCacheClaster extends FileCache
     {
         $hash = \md5($id, false);
         $path = $this->getClasterDirByName($name);
-        return $path . DIRECTORY_SEPARATOR . \substr($hash, 0, 2);
+        return $path . self::DIR_SEP . \substr($hash, 0, 2);
     }
 }
