@@ -183,14 +183,14 @@ class FileCache
    /**
     * старя реализация
     */
-   protected function _saveData(string $path_file, mixed $data, int $lifetime): bool
-   {
-      if ($data === null) return false;
-      $serialized = \serialize($data);
-      $result     = @\file_put_contents($path_file, $serialized, LOCK_EX);
-      if ($result === false) return false;
-      return @\touch($path_file, $lifetime + \time());
-   }
+   // protected function _saveData(string $path_file, mixed $data, int $lifetime): bool
+   // {
+   //    if ($data === null) return false;
+   //    $serialized = \serialize($data);
+   //    $result     = @\file_put_contents($path_file, $serialized, LOCK_EX);
+   //    if ($result === false) return false;
+   //    return @\touch($path_file, $lifetime + \time());
+   // }
 
    /**
     * @return array<string>
