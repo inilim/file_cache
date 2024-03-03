@@ -13,7 +13,7 @@ class FileNameCache
     protected const DIR_SEP = DIRECTORY_SEPARATOR;
 
     public function __construct(
-        protected string $cache_dir = '/cache/cache_name'
+        protected string $cache_dir = '/cache/file_name'
     ) {
     }
 
@@ -133,18 +133,18 @@ class FileNameCache
     /**
      * @return string[]|array{}
      */
-    protected function scandir2(string $dir, string $id): array
-    {
-        $needle = self::SEP_NAME . \md5($id, false) . self::SEP_NAME;
-        $res = @\opendir($dir);
-        if (!$res) return [];
-        $names = [];
-        while (($name = \readdir($res)) !== false) {
-            if (\str_contains($name, $needle)) $names[] = $name;
-        }
-        \closedir($res);
-        return $names;
-    }
+    // protected function scandir2(string $dir, string $id): array
+    // {
+    //     $needle = self::SEP_NAME . \md5($id, false) . self::SEP_NAME;
+    //     $res = @\opendir($dir);
+    //     if (!$res) return [];
+    //     $names = [];
+    //     while (($name = \readdir($res)) !== false) {
+    //         if (\str_contains($name, $needle)) $names[] = $name;
+    //     }
+    //     \closedir($res);
+    //     return $names;
+    // }
 
     /**
      * @param mixed $data
