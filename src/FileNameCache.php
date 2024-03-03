@@ -7,13 +7,51 @@ use Closure;
 class FileNameCache
 {
     // protected const PART = 10;
-    protected const PART = 218;
+    protected const PART = 245;
     protected const SEP_NAME = '-';
     protected const DIR_SEP = DIRECTORY_SEPARATOR;
 
     public function __construct(
         protected string $cache_dir = '/cache/cache_name'
     ) {
+    }
+
+    public function existByID(string|int|float $id): bool
+    {
+        $id  = \strval($id);
+        $dir = $this->getDirByID($id);
+        if (!\is_dir($dir)) return false;
+        $names = $this->getNames($dir, $id);
+        if (!$names) return false;
+        if (@\filemtime($dir) > \time()) return true;
+        return false;
+    }
+
+    /**
+     */
+    public function deleteByID(string|int|float $id): void
+    {
+        $id  = \strval($id);
+        $dir = $this->getDirByID($id);
+        if (!\is_dir($dir)) return;
+        $names = $this->getNames($dir, $id);
+        if (!$names) return;
+        $this->removeDir($dir, $names);
+    }
+
+    /**
+     */
+    public function get(string|int|float $id): mixed
+    {
+        $id  = \strval($id);
+        $dir = $this->getDirByID($id);
+        if (!\is_dir($dir)) return null;
+        $names = $this->getNames($dir, $id);
+        if (!$names) {
+            $this->removeDir($dir, $names);
+            return null;
+        }
+        return $this->read($dir, $names);
     }
 
     /**
@@ -23,43 +61,14 @@ class FileNameCache
     {
         $id  = \strval($id);
         $dir = $this->getDirByID($id);
+        if (\is_dir($dir)) $this->removeDir($dir);
         if (!$this->createDir($dir)) return false;
-        $names = $this->createNamesData($id, $data);
-        if (!$names) return false;
-        $this->remove($dir, $this->getNames($dir, $id));
+        $names = $this->createNamesData($data);
+        if (!$names) {
+            $this->removeDir($dir, $names);
+            return false;
+        }
         return $this->saveData($dir, $names, $lifetime);
-    }
-
-    public function existByID(string|int|float $id): bool
-    {
-        $id    = \strval($id);
-        $dir   = $this->getDirByID($id);
-        $names = $this->getNames($dir, $id);
-        if (!$names) return false;
-        if (@\filemtime($names[0]) > \time()) return true;
-        return false;
-    }
-
-    /**
-     */
-    public function deleteByID(string|int|float $id): void
-    {
-        $id    = \strval($id);
-        $dir   = $this->getDirByID($id);
-        $names = $this->getNames($dir, $id);
-        if (!$names) return;
-        $this->remove($dir, $names);
-    }
-
-    /**
-     */
-    public function get(string|int|float $id): mixed
-    {
-        $id    = \strval($id);
-        $dir   = $this->getDirByID($id);
-        $names = $this->getNames($dir, $id);
-        if (!$names) return null;
-        return $this->read($dir, $names);
     }
 
     /**
@@ -84,8 +93,8 @@ class FileNameCache
      */
     protected function read(string $dir, array $names): mixed
     {
-        if (@\filemtime($dir . self::DIR_SEP . $names[0]) < \time()) {
-            $this->remove($dir, $names);
+        if (@\filemtime($dir) < \time()) {
+            $this->removeDir($dir, $names);
             return null;
         }
 
@@ -93,11 +102,10 @@ class FileNameCache
             return \ltrim(\strrchr($name, self::SEP_NAME), self::SEP_NAME);
         }, $names);
         $data = \implode('', $data);
-
         $data = \base64_decode($data, true);
         if ($data === false) {
-            $this->remove($dir, $names);
-            throw new \Exception($names[0] . ' | base64_decode failed');
+            $this->removeDir($dir, $names);
+            throw new \Exception($dir . ' | base64_decode failed');
         }
         return \unserialize($data);
     }
@@ -105,17 +113,18 @@ class FileNameCache
     /**
      * @return string[]|array{}
      */
-    protected function getNames(string $dir, string $id): array
+    protected function getNames(string $dir): array
     {
-        $files = $this->scandir($dir, $id);
-        \sort($files, SORT_NATURAL);
-        return $files;
+        $files = \scandir($dir);
+        if ($files === false) return [];
+        // \sort($files, SORT_NATURAL);
+        return \array_diff($files, ['.', '..']);
     }
 
     /**
      * @return string[]|array{}
      */
-    protected function scandir(string $dir, string $id): array
+    protected function scandir2(string $dir, string $id): array
     {
         $needle = self::SEP_NAME . \md5($id, false) . self::SEP_NAME;
         $res = @\opendir($dir);
@@ -132,14 +141,13 @@ class FileNameCache
      * @param mixed $data
      * @return string[]|array{}
      */
-    protected function createNamesData(string $id, $data): array
+    protected function createNamesData($data): array
     {
         if ($data === null) return [];
-        $t = self::SEP_NAME . \md5($id, false) . self::SEP_NAME;
         $i = 0;
         return \array_map(
-            function ($part) use ($t, &$i) {
-                return ($i++) . $t . $part;
+            function ($part) use (&$i) {
+                return \sprintf("%'.03d", ($i++)) . self::SEP_NAME . $part;
             },
             \str_split(
                 \base64_encode(\serialize($data)),
@@ -153,22 +161,26 @@ class FileNameCache
         foreach ($names as $name) {
             $p = $dir . self::DIR_SEP . $name;
             if (@\file_put_contents($p, '') === false) {
-                @\unlink($p);
-                $this->remove($dir, $names);
+                $this->removeDir($dir, $names);
                 return false;
             }
-            @\touch($p, $lifetime + \time());
         }
+        @\touch($dir, $lifetime + \time());
         return true;
     }
 
     /**
-     * @param string[]|array{} $names
+     * @param string[]|array{} $names передаем для экономии процессов
      */
-    protected function remove(string $dir, array $names): void
+    protected function removeDir(string $dir, ?array $names = null): void
     {
-        if (!$names) return;
-        foreach ($names as $name) @\unlink($dir . self::DIR_SEP . $name);
+        if (!is_dir($dir)) return;
+        $names ??= $this->getNames($dir);
+        if (!$names) @\rmdir($dir);
+        else {
+            \array_map(fn ($f) => @\unlink($dir . self::DIR_SEP . $f), $names);
+            @\rmdir($dir);
+        }
     }
 
     protected function createDir(string $dir): bool
@@ -187,6 +199,7 @@ class FileNameCache
             \substr($hash, 0, 2),
             \substr($hash, 2, 2),
             \substr($hash, 4, 2),
+            \substr($hash, 6),
         ];
         return \implode(self::DIR_SEP, $dirs);
     }
