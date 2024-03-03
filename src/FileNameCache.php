@@ -22,7 +22,7 @@ class FileNameCache
         $id  = \strval($id);
         $dir = $this->getDirByID($id);
         if (!\is_dir($dir)) return false;
-        $names = $this->getNames($dir, $id);
+        $names = $this->getNames($dir);
         if (!$names) return false;
         if (@\filemtime($dir) > \time()) return true;
         return false;
@@ -35,9 +35,12 @@ class FileNameCache
         $id  = \strval($id);
         $dir = $this->getDirByID($id);
         if (!\is_dir($dir)) return;
-        $names = $this->getNames($dir, $id);
-        if (!$names) return;
-        $this->removeDir($dir, []);
+        $names = $this->getNames($dir);
+        if (!$names) {
+            $this->removeDir($dir, []);
+            return;
+        }
+        $this->removeDir($dir, $names);
     }
 
     /**
@@ -47,7 +50,7 @@ class FileNameCache
         $id  = \strval($id);
         $dir = $this->getDirByID($id);
         if (!\is_dir($dir)) return null;
-        $names = $this->getNames($dir, $id);
+        $names = $this->getNames($dir);
         if (!$names) {
             $this->removeDir($dir, []);
             return null;
@@ -109,8 +112,7 @@ class FileNameCache
         $data = \array_map(function ($name) {
             return \ltrim(\strstr($name, self::SEP_NAME), self::SEP_NAME);
         }, $names);
-        $data = \implode('', $data);
-        $data = \base64_decode($data, true);
+        $data = \base64_decode(\implode('', $data), true);
         if ($data === false) {
             $this->removeDir($dir, $names);
             throw new \Exception($dir . ' | base64_decode failed');
@@ -153,9 +155,9 @@ class FileNameCache
     protected function createNamesData($data): array
     {
         if ($data === null) return [];
-        $i = 0;
         $base = \base64_encode(\serialize($data));
         if ((\strlen($base) / self::PART) > self::MAX_COUNT_PART) throw new \Exception('the length of the data exceeds the limit');
+        $i = 0;
         return \array_map(
             function ($part) use (&$i) {
                 return ($i++) . self::SEP_NAME . $part;
