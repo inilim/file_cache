@@ -58,81 +58,48 @@ class FileCacheClaster extends FileCache
     public function deleteAllFromClaster(string|int|float $claster_name): void
     {
         $m_dir = $this->getDirByName(\strval($claster_name));
-        $names = $this->getAllNamesFromDir($m_dir);
-
-        if (!$names) return;
-
-        \array_map(
-            function ($n) use ($m_dir) {
-                // 
-                $dir2 = $m_dir . self::DIR_SEP . $n;
-                // 
-                if (\is_file($dir2)) {
-                    @\unlink($dir2);
-                    return;
-                }
-                // 
-                \array_map(function ($nn) use ($dir2) {
-                    // 
-                    $dir3 = $dir2 . self::DIR_SEP . $nn;
-                    // 
-                    if (\is_file($dir3)) @\unlink($dir3);
-                    // 
-                }, $this->getAllNamesFromDir($dir2));
-                // 
-            },
-            $names
-        );
+        $d = new \RecursiveDirectoryIterator($m_dir, \FilesystemIterator::SKIP_DOTS);
+        $it = new \RecursiveIteratorIterator($d, \RecursiveIteratorIterator::SELF_FIRST);
+        $dirs = [];
+        // удаляем файлы
+        foreach ($it as $dir_or_file) {
+            /** @var \SplFileInfo $dir_or_file */
+            $pathname = $dir_or_file->getFilename();
+            if (\is_dir($pathname)) $dirs[] = $pathname;
+            else @\unlink($pathname);
+        }
+        // удаляем директории
+        foreach ($dirs as $dir) @\rmdir($dir);
     }
 
     public function deleteAll(bool $clasters = false): void
     {
-        $m_dir = $this->getCacheDir();
-        $names = $this->getAllNamesFromDir($m_dir);
-
-        // берем кластерные папки
         if (!$clasters) {
-            $names = \array_merge($names, $this->getAllClasterNames());
+            parent::deleteAll();
+            return;
         }
-
-        if (!$names) return;
-
-        \array_map(
-            function ($n) use ($m_dir) {
-                // 
-                $dir2 = $m_dir . self::DIR_SEP . $n;
-                // 
-                if (\is_file($dir2)) {
-                    @\unlink($dir2);
-                    return;
-                }
-                // 
-                \array_map(function ($nn) use ($dir2) {
-                    // 
-                    $dir3 = $dir2 . self::DIR_SEP . $nn;
-                    // 
-                    if (\is_file($dir3)) @\unlink($dir3);
-                    // 
-                }, $this->getAllNamesFromDir($dir2));
-                // 
-            },
-            $names
-        );
+        // файлы
+        // TODO в текущем классе родительский deleteAll удалит файлы кластера
+        parent::deleteAll();
+        // кластеры
+        $m_dir = $this->getDirClaster();
+        $d = new \RecursiveDirectoryIterator($m_dir, \FilesystemIterator::SKIP_DOTS);
+        $it = new \RecursiveIteratorIterator($d, \RecursiveIteratorIterator::SELF_FIRST);
+        $dirs = [];
+        // удаляем файлы
+        foreach ($it as $dir_or_file) {
+            /** @var \SplFileInfo $dir_or_file */
+            $pathname = $dir_or_file->getFilename();
+            if (\is_dir($pathname)) $dirs[] = $pathname;
+            else @\unlink($pathname);
+        }
+        de($dirs);
+        // удаляем директории
+        foreach ($dirs as $dir) @\rmdir($dir);
     }
-
     // ------------------------------------------------------------------
     // ___
     // ------------------------------------------------------------------
-
-    /**
-     * @return string[]|array{}
-     */
-    protected function getAllClasterNames(): array
-    {
-        $dir = $this->getDirClaster();
-        $this->getAllNamesFromDir($dir);
-        return [];
-    }
 
     /**
      * main_dir/clasters/[a-z]{36}/[a-z]{2}/[a-z]{36} |

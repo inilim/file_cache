@@ -62,27 +62,12 @@ class FileCache
    public function deleteAll(): void
    {
       $m_dir = $this->getCacheDir();
-      $names = $this->getAllNamesFromDir($m_dir);
-      if (!$names) return;
-
-      \array_map(function ($n) use ($m_dir) {
-         // 
-         $dir2 = $m_dir . self::DIR_SEP . $n;
-         // 
-         if (\is_file($dir2)) {
-            @\unlink($dir2);
-            return;
-         }
-         // 
-         \array_map(function ($nn) use ($dir2) {
-            // 
-            $dir3 = $dir2 . self::DIR_SEP . $nn;
-            // 
-            if (\is_file($dir3)) @\unlink($dir3);
-            // 
-         }, $this->getAllNamesFromDir($dir2));
-         // 
-      }, $names);
+      $d = new \RecursiveDirectoryIterator($m_dir, \FilesystemIterator::SKIP_DOTS);
+      $it = new \RecursiveIteratorIterator($d);
+      foreach ($it as $file) {
+         /** @var \SplFileInfo $file */
+         @\unlink($file->getPathname());
+      }
    }
 
    /**
@@ -157,18 +142,6 @@ class FileCache
    //    if ($result === false) return false;
    //    return @\touch($path_file, $lifetime + \time());
    // }
-
-   /**
-    * возвращает абсолютные пути
-    * @return string[]|array{}
-    */
-   protected function getAllNamesFromDir(string $dir): array
-   {
-      $names = @\scandir($dir);
-      if (!$names) return [];
-      $names = \array_diff($names, ['.', '..']);
-      return \array_map(fn ($n) => $n, $names);
-   }
 
    protected function createDir(string $dir): bool
    {
