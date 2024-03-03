@@ -19,8 +19,7 @@ class FileNameCache
 
     public function existByID(string|int|float $id): bool
     {
-        $id  = \strval($id);
-        $dir = $this->getDirByID($id);
+        $dir = $this->getDirByID(\strval($id));
         if (!\is_dir($dir)) return false;
         $names = $this->getNames($dir);
         if (!$names) return false;
@@ -32,8 +31,7 @@ class FileNameCache
      */
     public function deleteByID(string|int|float $id): void
     {
-        $id  = \strval($id);
-        $dir = $this->getDirByID($id);
+        $dir = $this->getDirByID(\strval($id));
         if (!\is_dir($dir)) return;
         $names = $this->getNames($dir);
         if (!$names) {
@@ -47,12 +45,11 @@ class FileNameCache
      */
     public function get(string|int|float $id): mixed
     {
-        $id  = \strval($id);
-        $dir = $this->getDirByID($id);
+        $dir = $this->getDirByID(\strval($id));
         if (!\is_dir($dir)) return null;
         $names = $this->getNames($dir);
         if (!$names) {
-            $this->removeDir($dir, []);
+            // $this->removeDir($dir, []);
             return null;
         }
         return $this->read($dir, $names);
@@ -63,9 +60,9 @@ class FileNameCache
      */
     public function save(string|int|float $id, $data, int $lifetime = 3600): bool
     {
-        $id  = \strval($id);
-        $dir = $this->getDirByID($id);
-        if (\is_dir($dir)) $this->removeDir($dir);
+        $dir = $this->getDirByID(\strval($id));
+        // TODO используем file_exists потому что бывает что финальная папка сохраняется как файл, причину такого поведения еще не нашел
+        if (\file_exists($dir)) $this->removeDir($dir);
         if (!$this->createDir($dir)) return false;
         $names = $this->createNamesData($data);
         if (!$names) {
@@ -88,6 +85,9 @@ class FileNameCache
         return $res;
     }
 
+    /**
+     * @param mixed $data
+     */
     public function isCached($data): bool
     {
         if ($data === null) return false;
@@ -126,7 +126,7 @@ class FileNameCache
     protected function getNames(string $dir): array
     {
         // glob очень медленный
-        $files = \scandir($dir);
+        $files = @\scandir($dir);
         if ($files === false) return [];
         // \sort($files, SORT_NATURAL);
         return \array_diff($files, ['.', '..']);
@@ -188,12 +188,16 @@ class FileNameCache
      */
     protected function removeDir(string $dir, ?array $names = null): void
     {
-        if (!is_dir($dir)) return;
-        $names ??= $this->getNames($dir);
-        if (!$names) @\rmdir($dir);
-        else {
-            \array_map(fn ($f) => @\unlink($dir . self::DIR_SEP . $f), $names);
-            @\rmdir($dir);
+        if (!\file_exists($dir)) return;
+        if (\is_dir($dir)) {
+            $names ??= $this->getNames($dir);
+            if (!$names) @\rmdir($dir);
+            else {
+                \array_map(fn ($f) => @\unlink($dir . self::DIR_SEP . $f), $names);
+                @\rmdir($dir);
+            }
+        } else {
+            @\unlink($dir);
         }
     }
 
