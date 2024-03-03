@@ -7,7 +7,8 @@ use Closure;
 class FileNameCache
 {
     // protected const PART = 10;
-    protected const PART = 245;
+    protected const PART = 248;
+    protected const MAX_COUNT_PART = 6;
     protected const SEP_NAME = '-';
     protected const DIR_SEP = DIRECTORY_SEPARATOR;
 
@@ -36,7 +37,7 @@ class FileNameCache
         if (!\is_dir($dir)) return;
         $names = $this->getNames($dir, $id);
         if (!$names) return;
-        $this->removeDir($dir, $names);
+        $this->removeDir($dir, []);
     }
 
     /**
@@ -48,7 +49,7 @@ class FileNameCache
         if (!\is_dir($dir)) return null;
         $names = $this->getNames($dir, $id);
         if (!$names) {
-            $this->removeDir($dir, $names);
+            $this->removeDir($dir, []);
             return null;
         }
         return $this->read($dir, $names);
@@ -65,7 +66,7 @@ class FileNameCache
         if (!$this->createDir($dir)) return false;
         $names = $this->createNamesData($data);
         if (!$names) {
-            $this->removeDir($dir, $names);
+            $this->removeDir($dir, []);
             return false;
         }
         return $this->saveData($dir, $names, $lifetime);
@@ -84,6 +85,13 @@ class FileNameCache
         return $res;
     }
 
+    public function isCached($data): bool
+    {
+        if ($data === null) return false;
+        if ((\strlen(\base64_encode(\serialize($data))) / self::PART) > self::MAX_COUNT_PART) return false;
+        return true;
+    }
+
     // ------------------------------------------------------------------
     // protected
     // ------------------------------------------------------------------
@@ -99,7 +107,7 @@ class FileNameCache
         }
 
         $data = \array_map(function ($name) {
-            return \ltrim(\strrchr($name, self::SEP_NAME), self::SEP_NAME);
+            return \ltrim(\strstr($name, self::SEP_NAME), self::SEP_NAME);
         }, $names);
         $data = \implode('', $data);
         $data = \base64_decode($data, true);
@@ -115,6 +123,7 @@ class FileNameCache
      */
     protected function getNames(string $dir): array
     {
+        // glob очень медленный
         $files = \scandir($dir);
         if ($files === false) return [];
         // \sort($files, SORT_NATURAL);
@@ -145,12 +154,14 @@ class FileNameCache
     {
         if ($data === null) return [];
         $i = 0;
+        $base = \base64_encode(\serialize($data));
+        if ((\strlen($base) / self::PART) > self::MAX_COUNT_PART) throw new \Exception('the length of the data exceeds the limit');
         return \array_map(
             function ($part) use (&$i) {
-                return \sprintf("%'.03d", ($i++)) . self::SEP_NAME . $part;
+                return ($i++) . self::SEP_NAME . $part;
             },
             \str_split(
-                \base64_encode(\serialize($data)),
+                $base,
                 self::PART
             )
         );
@@ -159,8 +170,8 @@ class FileNameCache
     protected function saveData(string $dir, array $names, int $lifetime): bool
     {
         foreach ($names as $name) {
-            $p = $dir . self::DIR_SEP . $name;
-            if (@\file_put_contents($p, '') === false) {
+            // fopen тут медленнее
+            if (@\file_put_contents($dir . self::DIR_SEP . $name, '') === false) {
                 $this->removeDir($dir, $names);
                 return false;
             }
@@ -170,6 +181,7 @@ class FileNameCache
     }
 
     /**
+     * TODO скорость записи такая медленная из-за очищения директории, rmdir не может удалить папку вместе с файлами
      * @param string[]|array{} $names передаем для экономии процессов
      */
     protected function removeDir(string $dir, ?array $names = null): void
@@ -198,8 +210,7 @@ class FileNameCache
             $this->getCacheDir(),
             \substr($hash, 0, 2),
             \substr($hash, 2, 2),
-            \substr($hash, 4, 2),
-            \substr($hash, 6),
+            \substr($hash, 4),
         ];
         return \implode(self::DIR_SEP, $dirs);
     }
