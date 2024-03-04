@@ -10,6 +10,8 @@ class FileNameCache
     protected const PART = 248;
     protected const MAX_COUNT_PART = 6;
     protected const SEP_NAME = '-';
+    protected const SEARCH = '/';
+    protected const REPLACE = '_';
     protected const DIR_SEP = DIRECTORY_SEPARATOR;
 
     public function __construct(
@@ -112,7 +114,14 @@ class FileNameCache
         $data = \array_map(function ($name) {
             return \ltrim(\strstr($name, self::SEP_NAME), self::SEP_NAME);
         }, $names);
-        $data = \base64_decode(\implode('', $data), true);
+        $data = \base64_decode(
+            \str_replace(
+                self::REPLACE,
+                self::SEARCH,
+                \implode('', $data)
+            ),
+            true
+        );
         if ($data === false) {
             $this->removeDir($dir, $names);
             throw new \Exception($dir . ' | base64_decode failed');
@@ -155,7 +164,7 @@ class FileNameCache
     protected function createNamesData($data): array
     {
         if ($data === null) return [];
-        $base = \base64_encode(\serialize($data));
+        $base = \str_replace(self::SEARCH, self::REPLACE, \base64_encode(\serialize($data)));
         if ((\strlen($base) / self::PART) > self::MAX_COUNT_PART) throw new \Exception('the length of the data exceeds the limit');
         $i = 0;
         return \array_map(
