@@ -115,10 +115,14 @@ class FileCacheClaster extends FileCache
      */
     protected function getDirByIDAndName(string $id, string $name): string
     {
-        return \implode(self::DIR_SEP, [
-            $this->getDirByName($name),
-            \substr(\md5($id, false), 0, 2),
-        ]);
+        // return \implode(self::DIR_SEP, [
+        //     $this->getDirByName($name),
+        //     \substr(\md5($id, false), 0, 2),
+        // ]);
+
+        return $this->getDirByName($name) .
+            self::DIR_SEP .
+            \substr(\md5($id, false), 0, 2);
     }
 
     /**
@@ -127,10 +131,14 @@ class FileCacheClaster extends FileCache
      */
     protected function getDirByName(string $name): string
     {
-        return \implode(self::DIR_SEP, [
-            $this->getDirClaster(),
-            \md5($name, false),
-        ]);
+        // return \implode(self::DIR_SEP, [
+        //     $this->getDirClaster(),
+        //     \md5($name, false),
+        // ]);
+
+        return $this->getDirClaster() .
+            self::DIR_SEP .
+            \md5($name, false);
     }
 
     /**
@@ -138,9 +146,13 @@ class FileCacheClaster extends FileCache
      */
     protected function getDirClaster(): string
     {
-        return \implode(self::DIR_SEP, [
-            $this->getCacheDir(),
-            self::NAME_DIR,
-        ]);
+        // return \implode(self::DIR_SEP, [
+        //     $this->cache_dir,
+        //     self::NAME_DIR,
+        // ]);
+
+        return $this->cache_dir .
+            self::DIR_SEP .
+            self::NAME_DIR;
     }
 }

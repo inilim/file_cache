@@ -9,6 +9,8 @@ class FileCache
    protected const DIR_SEP = DIRECTORY_SEPARATOR;
 
    protected int $count_read = 0;
+   protected readonly string $cache_dir;
+
    /**
     * Creates a FileCache object
     */
@@ -16,8 +18,9 @@ class FileCache
       /**
        * The root cache directory.
        */
-      protected string $cache_dir = '/cache'
+      string $cache_dir = '/cache'
    ) {
+      $this->cache_dir = \rtrim($cache_dir, '/');
    }
 
    public function getCountRead(): int
@@ -61,8 +64,7 @@ class FileCache
 
    public function deleteAll(): void
    {
-      $m_dir = $this->getCacheDir();
-      $d = new \RecursiveDirectoryIterator($m_dir, \FilesystemIterator::SKIP_DOTS);
+      $d = new \RecursiveDirectoryIterator($this->cache_dir, \FilesystemIterator::SKIP_DOTS);
       $it = new \RecursiveIteratorIterator($d);
       foreach ($it as $file) {
          /** @var \SplFileInfo $file */
@@ -158,15 +160,14 @@ class FileCache
 
    protected function getDirByID(string $id): string
    {
-      $dirs = [
-         $this->getCacheDir(),
-         \substr(\md5($id, false), 0, 2),
-      ];
-      return \implode(self::DIR_SEP, $dirs);
-   }
+      // $dirs = [
+      //    $this->cache_dir,
+      //    \substr(\md5($id, false), 0, 2),
+      // ];
+      // return \implode(self::DIR_SEP, $dirs);
 
-   protected function getCacheDir(): string
-   {
-      return $this->cache_dir;
+      return $this->cache_dir .
+         self::DIR_SEP .
+         \substr(\md5($id, false), 0, 2);
    }
 }

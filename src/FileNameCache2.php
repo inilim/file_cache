@@ -4,7 +4,7 @@ namespace Inilim\FileCache;
 
 use Closure;
 
-class FileNameCache
+class FileNameCache2
 {
     // protected const PART = 10;
     protected const PART = 248;
@@ -200,7 +200,7 @@ class FileNameCache
     protected function saveData(string $dir, array $names, int $lifetime): bool
     {
         foreach ($names as $name) {
-            // fopen,touch тут медленнее
+            // fopen тут медленнее
             if (@\file_put_contents($dir . self::DIR_SEP . $name, '') === false) {
                 $this->removeDir($dir, $names);
                 return false;
