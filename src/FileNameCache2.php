@@ -57,7 +57,7 @@ class FileNameCache2
     {
         $dir = $this->getDirByID(\serialize($id));
         if (!\is_dir($dir)) return null;
-        $names = $this->getNames($dir);
+        $names = $this->getNamesAsStr($dir);
         if (!$names) {
             return null;
         }
@@ -111,37 +111,24 @@ class FileNameCache2
     // ------------------------------------------------------------------
 
     /**
-     * @param string[] $names
      */
-    protected function read(string $dir, array $names): mixed
+    protected function read(string $dir, string $names): mixed
     {
         if (@\filemtime($dir) < \time()) {
-            $this->removeDir($dir, $names);
+            $this->removeDir($dir);
             return null;
         }
 
-        // $data = \array_map(function ($name) {
-        //     return \substr($name, 2);
-        // }, $names);
-
-        $k = \array_key_first($names);
-        $data = '';
-        for (;;) {
-            if (!isset($names[$k])) break;
-            $data .= \substr($names[$k], 2);
-            $k++;
-        }
-        // strtr бысрее чем str_replace
         $data = \base64_decode(
             \strtr(
-                $data,
+                \preg_replace('#([0-9]{1}\-)#', '', $names),
                 self::REPLACE,
                 self::SEARCH,
             ),
             true
         );
         if ($data === false) {
-            $this->removeDir($dir, $names);
+            $this->removeDir($dir);
             throw new \Exception($dir . ' | base64_decode failed');
         }
         return \unserialize($data);
@@ -157,6 +144,11 @@ class FileNameCache2
         if ($files === false) return [];
         // \sort($files, SORT_NATURAL);
         return \array_diff($files, ['.', '..']);
+    }
+
+    protected function getNamesAsStr(string $dir, ?array $names = null): string
+    {
+        return \implode('', ($names ?? $this->getNames($dir)));
     }
 
     /**
@@ -200,7 +192,7 @@ class FileNameCache2
     protected function saveData(string $dir, array $names, int $lifetime): bool
     {
         foreach ($names as $name) {
-            // fopen тут медленнее
+            // fopen,touch тут медленнее
             if (@\file_put_contents($dir . self::DIR_SEP . $name, '') === false) {
                 $this->removeDir($dir, $names);
                 return false;
