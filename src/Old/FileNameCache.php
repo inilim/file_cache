@@ -1,9 +1,12 @@
 <?php
 
-namespace Inilim\FileCache;
+namespace Inilim\FileCache\Old;
 
 use Closure;
 
+/**
+ * при чтении работаем с массивом
+ */
 class FileNameCache
 {
     // protected const PART = 10;
@@ -57,7 +60,7 @@ class FileNameCache
     {
         $dir = $this->getDirByID(\serialize($id));
         if (!\is_dir($dir)) return null;
-        $names = $this->getNamesAsStr($dir);
+        $names = $this->getNames($dir);
         if (!$names) {
             return null;
         }
@@ -111,28 +114,40 @@ class FileNameCache
     // ------------------------------------------------------------------
 
     /**
+     * @param string[] $names
      */
-    protected function read(string $dir, string $names): mixed
+    protected function read(string $dir, array $names): mixed
     {
         if (@\filemtime($dir) < \time()) {
-            $this->removeDir($dir);
+            $this->removeDir($dir, $names);
             return null;
         }
 
+        // $data = \array_map(function ($name) {
+        //     return \substr($name, 2);
+        // }, $names);
+
+        $k = \array_key_first($names);
+        $data = '';
+        for (;;) {
+            if (!isset($names[$k])) break;
+            $data .= \substr($names[$k], 2);
+            $k++;
+        }
+        // strtr бысрее чем str_replace
         $data = \base64_decode(
             \strtr(
-                \preg_replace('#([0-9]{1}\-)#', '', $names),
+                $data,
                 self::REPLACE,
                 self::SEARCH,
             ),
             true
         );
         if ($data === false) {
-            $this->removeDir($dir);
+            $this->removeDir($dir, $names);
             throw new \Exception($dir . ' | base64_decode failed');
         }
         if ('b:0;' === $data) return false;
-        // при неудавшем десириализации выдает false, поэтому делаем проверку выше
         $data = \unserialize($data);
         if ($data === false) return null;
         return $data;
@@ -148,11 +163,6 @@ class FileNameCache
         if ($files === false) return [];
         // \sort($files, SORT_NATURAL);
         return \array_diff($files, ['.', '..']);
-    }
-
-    protected function getNamesAsStr(string $dir, ?array $names = null): string
-    {
-        return \implode('', ($names ?? $this->getNames($dir)));
     }
 
     /**

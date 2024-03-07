@@ -4,7 +4,7 @@ namespace Inilim\FileCache;
 
 use Closure;
 
-class FileCache
+class FileCache2
 {
    protected const DIR_SEP = DIRECTORY_SEPARATOR;
 
@@ -80,7 +80,7 @@ class FileCache
       $id  = \strval($id);
       $dir = $this->getDirByID($id);
       if (!$this->createDir($dir)) return false;
-      $path_file = $dir . self::DIR_SEP . \md5($id, false);
+      $path_file = $dir . self::DIR_SEP . \md5($id, false) . '|' . ($lifetime + \time());
       return $this->saveData($path_file, $data, $lifetime);
    }
 
@@ -113,6 +113,32 @@ class FileCache
       @\unlink($path_file);
       return null;
    }
+
+   // protected function doFetch(array $ids): iterable
+   // {
+   //    $values = [];
+   //    $now = time();
+
+   //    foreach ($ids as $id) {
+   //       $file = $this->getFile($id);
+   //       if (!is_file($file) || !$h = @fopen($file, 'r')) {
+   //          continue;
+   //       }
+   //       if (($expiresAt = (int) fgets($h)) && $now >= $expiresAt) {
+   //          fclose($h);
+   //          @unlink($file);
+   //       } else {
+   //          $i = rawurldecode(rtrim(fgets($h)));
+   //          $value = stream_get_contents($h);
+   //          fclose($h);
+   //          if ($i === $id) {
+   //             $values[$id] = $this->marshaller->unmarshall($value);
+   //          }
+   //       }
+   //    }
+
+   //    return $values;
+   // }
 
    protected function saveData(string $path_file, mixed $data, int $lifetime): bool
    {

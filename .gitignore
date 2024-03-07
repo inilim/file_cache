@@ -1,5 +1,5 @@
 /vendor
 /test.php
-/test2.php
+/test*.php
 /cache
 /*.txt

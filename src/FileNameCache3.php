@@ -4,7 +4,10 @@ namespace Inilim\FileCache;
 
 use Closure;
 
-class FileNameCache2
+/**
+ * при чтении берем время из имени папки
+ */
+class FileNameCache3
 {
     // protected const PART = 10;
     protected const PART = 248;
@@ -131,7 +134,10 @@ class FileNameCache2
             $this->removeDir($dir);
             throw new \Exception($dir . ' | base64_decode failed');
         }
-        return \unserialize($data);
+        if ('b:0;' === $data) return false;
+        $data = \unserialize($data);
+        if ($data === false) return null;
+        return $data;
     }
 
     /**

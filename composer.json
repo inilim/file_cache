@@ -13,12 +13,12 @@
             "name": "inilim"
         }
     ],
-    "minimum-stability": "dev",
     "require": {
         "php": "^8.2"
     },
     "require-dev": {
         "phpstan/phpstan": "@stable",
-        "dragon-code/benchmark": "2.6"
+        "dragon-code/benchmark": "2.6",
+        "symfony/cache": "7.0"
     }
 }
