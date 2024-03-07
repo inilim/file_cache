@@ -4,10 +4,7 @@ namespace Inilim\FileCache;
 
 use Closure;
 
-/**
- * при чтении берем время из имени папки
- */
-class FileNameCache3
+class FileNameCache2
 {
     // protected const PART = 10;
     protected const PART = 248;
@@ -73,7 +70,7 @@ class FileNameCache3
      */
     public function save($id, $data, int $lifetime = 3600): bool
     {
-        $dir = $this->getDirByID(\serialize($id));
+        $dir = $this->getDirByID(\serialize($id), $lifetime);
         // TODO используем file_exists потому что бывает что финальная папка сохраняется как файл, причину такого поведения еще не нашел
         if (\file_exists($dir)) $this->removeDir($dir);
         if (!$this->createDir($dir)) return false;
@@ -135,6 +132,7 @@ class FileNameCache3
             throw new \Exception($dir . ' | base64_decode failed');
         }
         if ('b:0;' === $data) return false;
+        // при неудавшем десириализации выдает false, поэтому делаем проверку выше
         $data = \unserialize($data);
         if ($data === false) return null;
         return $data;
@@ -235,7 +233,31 @@ class FileNameCache3
         return true;
     }
 
-    protected function getDirByID(string $id): string
+    protected function getDirByID(string $id, ?int $lifetime = null): string
+    {
+        $hash = \md5($id, false);
+
+        $path = $this->cache_dir .
+            self::DIR_SEP .
+            \substr($hash, 0, 2) .
+            self::DIR_SEP .
+            \substr($hash, 2, 2);
+
+        $dir = \substr($hash, 4);
+
+        if ($lifetime !== null) {
+            return $path . self::DIR_SEP . $dir . self::SEP_NAME . (\time() + $lifetime);
+        }
+
+        $scan = @\scandir($path);
+        if (!$scan) return '';
+
+        $scan = \array_filter($scan, fn ($d) => \str_starts_with($d, $dir . self::SEP_NAME));
+        if (!$scan) return '';
+        return $path . self::DIR_SEP . \current($scan);
+    }
+
+    protected function getDirByID2(string $id): string
     {
         $hash = \md5($id, false);
         return $this->cache_dir .
