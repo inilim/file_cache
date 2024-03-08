@@ -190,7 +190,7 @@ class FileNameCache2
                 self::PART
             )
         );
-
+        $base[] = \time() + $lifetime;
         return $base;
     }
 

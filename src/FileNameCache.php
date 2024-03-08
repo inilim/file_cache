@@ -58,7 +58,7 @@ class FileNameCache
         $dir = $this->getDirByID(\serialize($id));
         if (!\is_dir($dir)) return null;
         $names = $this->getNamesAsStr($dir);
-        if (!$names) {
+        if (!$names || @\filemtime($dir) < \time()) {
             return null;
         }
         return $this->read($dir, $names);
@@ -114,11 +114,6 @@ class FileNameCache
      */
     protected function read(string $dir, string $names): mixed
     {
-        if (@\filemtime($dir) < \time()) {
-            $this->removeDir($dir);
-            return null;
-        }
-
         $data = \base64_decode(
             \strtr(
                 \preg_replace('#([0-9]{1}\-)#', '', $names),
