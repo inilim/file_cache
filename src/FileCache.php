@@ -28,13 +28,20 @@ class FileCache
       return $this->count_read;
    }
 
-   public function get(string|int|float $id): mixed
+   /**
+    * @param mixed $id
+    */
+   public function get($id): mixed
    {
-      $path_file = $this->getPathFileByID(\strval($id));
-      return $this->read($path_file);
+      return $this->read(
+         $this->getPathFileByID(\serialize($id))
+      );
    }
 
-   public function getOrSave(string|int|float $id, Closure $data, int $lifetime = 3600): mixed
+   /**
+    * @param mixed $id
+    */
+   public function getOrSave($id, Closure $data, int $lifetime = 3600): mixed
    {
       $res = $this->get($id);
       if ($res === null) {
@@ -46,20 +53,24 @@ class FileCache
    }
 
    /**
-    * существует ли еще файл
+    * @param mixed $id
     */
-   public function exist(string|int|float $id): bool
+   public function exist($id): bool
    {
-      $path_file = $this->getPathFileByID(\strval($id));
+      $path_file = $this->getPathFileByID(\serialize($id));
       if (!\is_file($path_file)) return false;
-      if (@\filemtime($path_file) > \time()) return true;
+      if (\filemtime($path_file) > \time()) return true;
       return false;
    }
 
-   public function delete(string|int|float $id): void
+   /**
+    * @param mixed $id
+    */
+   public function delete($id): void
    {
-      $path_file = $this->getPathFileByID(\strval($id));
-      @\unlink($path_file);
+      @\unlink(
+         $this->getPathFileByID(\serialize($id))
+      );
    }
 
    public function deleteAll(): void
@@ -73,14 +84,16 @@ class FileCache
    }
 
    /**
+    * @param mixed  $id
     * @param mixed  $data
     */
-   public function save(string|int|float $id, $data, int $lifetime = 3600): bool
+   public function save($id, $data, int $lifetime = 3600): bool
    {
-      $id  = \strval($id);
-      $dir = $this->getDirByID($id);
+      if ($data === null) return false;
+      $hash = \md5(\serialize($id), false);
+      $dir  = $this->getDirByID($hash);
       if (!$this->createDir($dir)) return false;
-      $path_file = $dir . self::DIR_SEP . \md5($id, false);
+      $path_file = $dir . self::DIR_SEP . $hash;
       return $this->saveData($path_file, $data, $lifetime);
    }
 
@@ -90,66 +103,63 @@ class FileCache
 
    protected function read(string $path_file): mixed
    {
-      if (!\is_file($path_file) || !\is_readable($path_file)) return null;
-
-      if (@\filemtime($path_file) > \time()) {
-         $fp = @\fopen($path_file, 'r');
-         if ($fp !== false) {
-            @\flock($fp, LOCK_SH);
-            $cache_value = @\stream_get_contents($fp);
-            if ($cache_value === false) $cache_value = '';
-            @\flock($fp, LOCK_UN);
-            @\fclose($fp);
-            $this->count_read++;
-            // ------------------------------------------------------------------
-            // ___
-            // ------------------------------------------------------------------
-            if ('b:0;' === $cache_value) return false;
-            $cache_value = \unserialize($cache_value);
-            if ($cache_value === false) return null;
-            return $cache_value;
-         }
+      if (!\is_file($path_file) || !$h = @\fopen($path_file, 'r')) {
+         return null;
       }
-      @\unlink($path_file);
-      return null;
+      $this->count_read++;
+      if (($expires_at = (int) \fgets($h)) && \time() >= $expires_at) {
+         \fclose($h);
+         @\unlink($path_file);
+         return null;
+      }
+
+      $data = \stream_get_contents($h);
+      if ($data === false) $data = '';
+      \fclose($h);
+
+      if ('' === $data) return null;
+      if ('b:0;' === $data) return false;
+      $data = \unserialize($data);
+      if ($data === false) return null;
+      return $data;
    }
 
-   protected function saveData(string $path_file, mixed $data, int $lifetime): bool
+   /**
+    * @param mixed $data
+    */
+   protected function saveData(string $path_file, $data, int $lifetime): bool
    {
-      if ($data === null) return false;
-      $dir        = \dirname($path_file);
-      $serialized = \serialize($data);
+      $expires_at = $lifetime + \time();
+      $ser = $expires_at . "\n" . \serialize($data);
+      $tmp = \dirname($path_file) . self::DIR_SEP . \uniqid(more_entropy: true);
 
-      $path_tmp_file = $dir . self::DIR_SEP . \uniqid(more_entropy: true);
-      $handle = \fopen($path_tmp_file, 'x');
-      if ($handle === false) {
-         @\unlink($path_tmp_file);
+      try {
+         $h = \fopen($tmp, 'x');
+      } catch (\Throwable $e) {
+         if (!\str_contains($e->getMessage(), 'File exists')) {
+            return false;
+         }
+
+         $tmp = \dirname($path_file) . self::DIR_SEP . \uniqid(more_entropy: true);
+         $h = \fopen($tmp, 'x');
+      }
+
+      if ($h === false) {
+         @\unlink($tmp);
          return false;
       }
-      \fwrite($handle, $serialized);
-      \fclose($handle);
+      \fwrite($h, $ser);
+      \fclose($h);
 
-      @\touch($path_tmp_file, $lifetime + \time());
+      \touch($tmp, $expires_at);
 
-      if (\rename($path_tmp_file, $path_file) === false) {
-         @\unlink($path_tmp_file);
+      if (\rename($tmp, $path_file) === false) {
+         @\unlink($tmp);
          return false;
       }
 
       return true;
    }
-
-   /**
-    * старя реализация
-    */
-   // protected function _saveData(string $path_file, mixed $data, int $lifetime): bool
-   // {
-   //    if ($data === null) return false;
-   //    $serialized = \serialize($data);
-   //    $result     = @\file_put_contents($path_file, $serialized, LOCK_EX);
-   //    if ($result === false) return false;
-   //    return @\touch($path_file, $lifetime + \time());
-   // }
 
    protected function createDir(string $dir): bool
    {
@@ -161,19 +171,14 @@ class FileCache
 
    protected function getPathFileByID(string $id): string
    {
-      return $this->getDirByID($id) . self::DIR_SEP . \md5($id, false);
+      $hash = \md5($id, false);
+      return $this->getDirByID($hash) . self::DIR_SEP . $hash;
    }
 
-   protected function getDirByID(string $id): string
+   protected function getDirByID(string $id_hash): string
    {
-      // $dirs = [
-      //    $this->cache_dir,
-      //    \substr(\md5($id, false), 0, 2),
-      // ];
-      // return \implode(self::DIR_SEP, $dirs);
-
       return $this->cache_dir .
          self::DIR_SEP .
-         \substr(\md5($id, false), 0, 2);
+         \substr($id_hash, 0, 2);
    }
 }

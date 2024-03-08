@@ -6,13 +6,16 @@ use Closure;
 use Inilim\FileCache\FileCache;
 
 /**
- * TODO заменить glob на scandir
  */
 class FileCacheClaster extends FileCache
 {
     protected const NAME_DIR = 'clasters';
 
-    public function getOrSaveFromClaster(string|int|float $id, string|int|float $claster_name, Closure $data, int $lifetime = 3600): mixed
+    /**
+     * @param mixed $id
+     * @param mixed $claster_name
+     */
+    public function getOrSaveFromClaster($id, $claster_name, Closure $data, int $lifetime = 3600): mixed
     {
         $res = $this->getFromClaster($id, $claster_name);
         if ($res === null) {
@@ -23,41 +26,61 @@ class FileCacheClaster extends FileCache
         return $res;
     }
 
-    public function getFromClaster(string|int|float $id, string|int|float $claster_name): mixed
+    /**
+     * @param mixed $id
+     * @param mixed $claster_name
+     */
+    public function getFromClaster($id, $claster_name): mixed
     {
-        $path_file = $this->getPathFileByIDAndName(\strval($id), \strval($claster_name));
+        $path_file = $this->getPathFileByIDAndName(\serialize($id), \serialize($claster_name));
         return $this->read($path_file);
     }
 
-    public function saveToClaster(string|int|float $id, string|int|float $claster_name, mixed $data, int $lifetime = 3600): bool
+    /**
+     * @param mixed $id
+     * @param mixed $claster_name
+     * @param mixed $data
+     */
+    public function saveToClaster($id, $claster_name, $data, int $lifetime = 3600): bool
     {
-        $id  = \strval($id);
-        $dir = $this->getDirByIDAndName($id, \strval($claster_name));
+        $hash  = \md5(\serialize($id), false);
+        $dir = $this->getDirByIDAndName($hash, \serialize($claster_name));
         if (!$this->createDir($dir)) return false;
         return $this->saveData(
-            $dir . self::DIR_SEP . \md5($id, false),
+            $dir . self::DIR_SEP . $hash,
             $data,
             $lifetime
         );
     }
 
-    public function existFromClaster(string|int|float $id, string|int|float $claster_name): bool
+    /**
+     * @param mixed $id
+     * @param mixed $claster_name
+     */
+    public function existFromClaster($id, $claster_name): bool
     {
-        $path_file = $this->getPathFileByIDAndName(\strval($id), \strval($claster_name));
+        $path_file = $this->getPathFileByIDAndName(\serialize($id), \serialize($claster_name));
         if (!\is_file($path_file)) return false;
-        if (@\filemtime($path_file) > \time()) return true;
+        if (\filemtime($path_file) > \time()) return true;
         return false;
     }
 
-    public function deleteFromClaster(string|int|float $id, string|int|float $claster_name): void
+    /**
+     * @param mixed $id
+     * @param mixed $claster_name
+     */
+    public function deleteFromClaster($id, $claster_name): void
     {
-        $path_file = $this->getPathFileByIDAndName(\strval($id), \strval($claster_name));
+        $path_file = $this->getPathFileByIDAndName(\serialize($id), \serialize($claster_name));
         @\unlink($path_file);
     }
 
-    public function deleteAllFromClaster(string|int|float $claster_name): void
+    /**
+     * @param mixed $claster_name
+     */
+    public function deleteAllFromClaster($claster_name): void
     {
-        $m_dir = $this->getDirByName(\strval($claster_name));
+        $m_dir = $this->getDirByName(\serialize($claster_name));
         $d = new \RecursiveDirectoryIterator($m_dir, \FilesystemIterator::SKIP_DOTS);
         $it = new \RecursiveIteratorIterator($d, \RecursiveIteratorIterator::SELF_FIRST);
         $dirs = [];
@@ -106,39 +129,30 @@ class FileCacheClaster extends FileCache
      */
     protected function getPathFileByIDAndName(string $id, string $claster_name): string
     {
-        return $this->getDirByIDAndName($id, $claster_name) . self::DIR_SEP . \md5($id, false);
+        $hash = \md5($id, false);
+        return $this->getDirByIDAndName($hash, $claster_name) . self::DIR_SEP . $hash;
     }
 
     /**
      * main_dir/clasters/[a-z]{36}/[a-z]{2} |
      * отдает только путь до папки где будет хранится файл
      */
-    protected function getDirByIDAndName(string $id, string $name): string
+    protected function getDirByIDAndName(string $id_hash, string $claster_name): string
     {
-        // return \implode(self::DIR_SEP, [
-        //     $this->getDirByName($name),
-        //     \substr(\md5($id, false), 0, 2),
-        // ]);
-
-        return $this->getDirByName($name) .
+        return $this->getDirByName($claster_name) .
             self::DIR_SEP .
-            \substr(\md5($id, false), 0, 2);
+            \substr($id_hash, 0, 2);
     }
 
     /**
      * main_dir/clasters/[a-z]{36} |
      * отдает только путь до папки кластера
      */
-    protected function getDirByName(string $name): string
+    protected function getDirByName(string $claster_name): string
     {
-        // return \implode(self::DIR_SEP, [
-        //     $this->getDirClaster(),
-        //     \md5($name, false),
-        // ]);
-
         return $this->getDirClaster() .
             self::DIR_SEP .
-            \md5($name, false);
+            \md5($claster_name, false);
     }
 
     /**
@@ -146,11 +160,6 @@ class FileCacheClaster extends FileCache
      */
     protected function getDirClaster(): string
     {
-        // return \implode(self::DIR_SEP, [
-        //     $this->cache_dir,
-        //     self::NAME_DIR,
-        // ]);
-
         return $this->cache_dir .
             self::DIR_SEP .
             self::NAME_DIR;
