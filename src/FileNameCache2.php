@@ -12,7 +12,7 @@ class FileNameCache2
     protected const SEP_NAME = '-';
     protected const SEARCH = '/';
     protected const REPLACE = '_';
-    protected const DIR_SEP = DIRECTORY_SEPARATOR;
+    protected const DIR_SEP = \DIRECTORY_SEPARATOR;
 
     protected readonly string $cache_dir;
 
@@ -29,9 +29,9 @@ class FileNameCache2
     {
         $dir = $this->getDirByID(\serialize($id));
         if (!\is_dir($dir)) return false;
-        $names = $this->getNames($dir);
+        $names = $this->getNamesAsStr($dir);
         if (!$names) return false;
-        if (@\filemtime($dir) > \time()) return true;
+        if (\substr($names, -10) > \time()) return true;
         return false;
     }
 
@@ -61,6 +61,10 @@ class FileNameCache2
         if (!$names) {
             return null;
         }
+        if (\substr($names, -10) < \time()) {
+            $this->removeDir($dir);
+            return null;
+        }
         return $this->read($dir, $names);
     }
 
@@ -74,12 +78,12 @@ class FileNameCache2
         // TODO используем file_exists потому что бывает что финальная папка сохраняется как файл, причину такого поведения еще не нашел
         if (\file_exists($dir)) $this->removeDir($dir);
         if (!$this->createDir($dir)) return false;
-        $names = $this->createNamesData($data);
+        $names = $this->createNamesData($data, $lifetime);
         if (!$names) {
             $this->removeDir($dir, []);
             return false;
         }
-        return $this->saveData($dir, $names, $lifetime);
+        return $this->saveData($dir, $names);
     }
 
     /**
@@ -114,14 +118,9 @@ class FileNameCache2
      */
     protected function read(string $dir, string $names): mixed
     {
-        if (@\filemtime($dir) < \time()) {
-            $this->removeDir($dir);
-            return null;
-        }
-
         $data = \base64_decode(
             \strtr(
-                \preg_replace('#([0-9]{1}\-)#', '', $names),
+                \preg_replace('#([0-9]{1}\-)#', '', \substr($names, 0, -10)),
                 self::REPLACE,
                 self::SEARCH,
             ),
@@ -175,14 +174,14 @@ class FileNameCache2
      * @param mixed $data
      * @return string[]|array{}
      */
-    protected function createNamesData($data): array
+    protected function createNamesData($data, int $lifetime): array
     {
         if ($data === null) return [];
         $base = \strtr(\base64_encode(\serialize($data)), self::SEARCH, self::REPLACE);
         // $base = \str_replace(self::SEARCH, self::REPLACE, \base64_encode(\serialize($data)));
         if ((\strlen($base) / self::PART) > self::MAX_COUNT_PART) throw new \Exception('the length of the data exceeds the limit');
         $i = 0;
-        return \array_map(
+        $base = \array_map(
             function ($part) use (&$i) {
                 return ($i++) . self::SEP_NAME . $part;
             },
@@ -191,9 +190,11 @@ class FileNameCache2
                 self::PART
             )
         );
+
+        return $base;
     }
 
-    protected function saveData(string $dir, array $names, int $lifetime): bool
+    protected function saveData(string $dir, array $names): bool
     {
         foreach ($names as $name) {
             // fopen,touch тут медленнее
@@ -202,7 +203,6 @@ class FileNameCache2
                 return false;
             }
         }
-        @\touch($dir, $lifetime + \time());
         return true;
     }
 

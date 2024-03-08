@@ -6,7 +6,7 @@ use Closure;
 
 class FileCache2
 {
-   protected const DIR_SEP = DIRECTORY_SEPARATOR;
+   protected const DIR_SEP = \DIRECTORY_SEPARATOR;
 
    protected int $count_read = 0;
    protected readonly string $cache_dir;

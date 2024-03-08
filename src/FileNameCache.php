@@ -12,7 +12,7 @@ class FileNameCache
     protected const SEP_NAME = '-';
     protected const SEARCH = '/';
     protected const REPLACE = '_';
-    protected const DIR_SEP = DIRECTORY_SEPARATOR;
+    protected const DIR_SEP = \DIRECTORY_SEPARATOR;
 
     protected readonly string $cache_dir;
 
