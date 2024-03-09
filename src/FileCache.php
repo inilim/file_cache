@@ -75,8 +75,10 @@ class FileCache
 
    public function deleteAll(): void
    {
-      $d = new \RecursiveDirectoryIterator($this->cache_dir, \FilesystemIterator::SKIP_DOTS);
-      $it = new \RecursiveIteratorIterator($d);
+      if (!\is_dir($this->cache_dir)) return;
+      $it = new \RecursiveIteratorIterator(
+         new \RecursiveDirectoryIterator($this->cache_dir, \FilesystemIterator::SKIP_DOTS)
+      );
       foreach ($it as $file) {
          /** @var \SplFileInfo $file */
          @\unlink($file->getPathname());

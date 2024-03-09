@@ -1,6 +1,6 @@
 <?php
 
-namespace Inilim\FileCache;
+namespace Inilim\FileCache\Old;
 
 use Closure;
 

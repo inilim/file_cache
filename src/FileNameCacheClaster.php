@@ -7,6 +7,8 @@ use Inilim\FileCache\FileNameCache;
 
 class FileNameCacheClaster extends FileNameCache
 {
+    protected const NAME_DIR = '_clasters';
+
     /**
      * @param mixed $id
      * @param mixed $claster_name
@@ -61,38 +63,15 @@ class FileNameCacheClaster extends FileNameCache
 
     protected function getDirByIDAndName(string $id, string $claster_name): string
     {
-        // $hash = \md5($id, false);
-        // $dirs = [
-        //     $this->getDirByName($claster_name),
-        //     \substr($hash, 0, 2),
-        //     \substr($hash, 2, 2),
-        //     \substr($hash, 4),
-        // ];
-        // return \implode(self::DIR_SEP, $dirs);
-
         $hash = \md5($id, false);
-        return $this->getDirByName($claster_name) .
+        return $this->cache_dir . self::NAME_DIR .
+            self::DIR_SEP .
+            \md5($claster_name, false) .
             self::DIR_SEP .
             \substr($hash, 0, 2) .
             self::DIR_SEP .
             \substr($hash, 2, 2) .
             self::DIR_SEP .
-            \substr($hash, 4);
-    }
-
-    protected function getDirByName(string $claster_name): string
-    {
-        // $dirs = [
-        //     $this->cache_dir,
-        //     'clasters',
-        //     \md5($claster_name, false),
-        // ];
-        // return \implode(self::DIR_SEP, $dirs);
-
-        return $this->cache_dir .
-            self::DIR_SEP .
-            'clasters' .
-            self::DIR_SEP .
-            \md5($claster_name, false);
+            $hash;
     }
 }

@@ -9,7 +9,7 @@ use Inilim\FileCache\FileCache;
  */
 class FileCacheClaster extends FileCache
 {
-    protected const NAME_DIR = 'clasters';
+    protected const NAME_DIR = '_clasters';
 
     /**
      * @param mixed $id
@@ -32,8 +32,9 @@ class FileCacheClaster extends FileCache
      */
     public function getFromClaster($id, $claster_name): mixed
     {
-        $path_file = $this->getPathFileByIDAndName(\serialize($id), \serialize($claster_name));
-        return $this->read($path_file);
+        return $this->read(
+            $this->getPathFileByIDAndName(\serialize($id), \serialize($claster_name))
+        );
     }
 
     /**
@@ -71,8 +72,9 @@ class FileCacheClaster extends FileCache
      */
     public function deleteFromClaster($id, $claster_name): void
     {
-        $path_file = $this->getPathFileByIDAndName(\serialize($id), \serialize($claster_name));
-        @\unlink($path_file);
+        @\unlink(
+            $this->getPathFileByIDAndName(\serialize($id), \serialize($claster_name))
+        );
     }
 
     /**
@@ -80,52 +82,53 @@ class FileCacheClaster extends FileCache
      */
     public function deleteAllFromClaster($claster_name): void
     {
-        $m_dir = $this->getDirByName(\serialize($claster_name));
-        $d = new \RecursiveDirectoryIterator($m_dir, \FilesystemIterator::SKIP_DOTS);
-        $it = new \RecursiveIteratorIterator($d, \RecursiveIteratorIterator::SELF_FIRST);
-        $dirs = [];
-        // удаляем файлы
-        foreach ($it as $dir_or_file) {
-            /** @var \SplFileInfo $dir_or_file */
-            $pathname = $dir_or_file->getFilename();
-            if (\is_dir($pathname)) $dirs[] = $pathname;
-            else @\unlink($pathname);
-        }
-        // удаляем директории
-        foreach ($dirs as $dir) @\rmdir($dir);
+        $this->deleteAllFromDir(
+            $this->getDirByName(\serialize($claster_name))
+        );
     }
 
-    public function deleteAll(bool $clasters = false): void
+    public function deleteAllClasters(): void
     {
-        if (!$clasters) {
-            parent::deleteAll();
-            return;
-        }
-        // файлы
-        // TODO в текущем классе родительский deleteAll удалит файлы кластера
-        parent::deleteAll();
-        // кластеры
-        $m_dir = $this->getDirClaster();
-        $d = new \RecursiveDirectoryIterator($m_dir, \FilesystemIterator::SKIP_DOTS);
-        $it = new \RecursiveIteratorIterator($d, \RecursiveIteratorIterator::SELF_FIRST);
-        $dirs = [];
-        // удаляем файлы
-        foreach ($it as $dir_or_file) {
-            /** @var \SplFileInfo $dir_or_file */
-            $pathname = $dir_or_file->getFilename();
-            if (\is_dir($pathname)) $dirs[] = $pathname;
-            else @\unlink($pathname);
-        }
-        de($dirs);
-        // удаляем директории
-        foreach ($dirs as $dir) @\rmdir($dir);
+        $this->deleteAllFromDir(
+            $this->getDirClaster()
+        );
     }
     // ------------------------------------------------------------------
     // ___
     // ------------------------------------------------------------------
 
     /**
-     * main_dir/clasters/[a-z]{36}/[a-z]{2}/[a-z]{36} |
+     * на рефакторинг
+     */
+    protected function deleteAllFromDir(string $dir): void
+    {
+        if (!\is_dir($dir)) return;
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+        $dirs = [];
+        // удаляем файлы
+        foreach ($it as $dir_or_file) {
+            /** @var \SplFileInfo $dir_or_file */
+            $pathname = $dir_or_file->getPathname();
+            if (\is_dir($pathname)) $dirs[] = $pathname;
+            else @\unlink($pathname);
+        }
+        // INFO сортируем от дочерних к родителям
+        \usort($dirs, function ($a, $b) {
+            $la = \strlen($a);
+            $lb = \strlen($b);
+            if ($la < $lb) return 1;
+            elseif ($la == $lb) return 0;
+            return -1;
+        });
+        // удаляем директории
+        foreach ($dirs as $dir) @\rmdir($dir);
+    }
+
+    /**
+     * main_dir_{clasters}/[a-z]{36}/[a-z]{2}/[a-z]{36} |
      */
     protected function getPathFileByIDAndName(string $id, string $claster_name): string
     {
@@ -134,7 +137,7 @@ class FileCacheClaster extends FileCache
     }
 
     /**
-     * main_dir/clasters/[a-z]{36}/[a-z]{2} |
+     * main_dir_{clasters}/[a-z]{36}/[a-z]{2} |
      * отдает только путь до папки где будет хранится файл
      */
     protected function getDirByIDAndName(string $id_hash, string $claster_name): string
@@ -145,7 +148,7 @@ class FileCacheClaster extends FileCache
     }
 
     /**
-     * main_dir/clasters/[a-z]{36} |
+     * main_dir_{clasters}/[a-z]{36} |
      * отдает только путь до папки кластера
      */
     protected function getDirByName(string $claster_name): string
@@ -156,12 +159,10 @@ class FileCacheClaster extends FileCache
     }
 
     /**
-     * main_dir/clasters |
+     * main_dir{_clasters} |
      */
     protected function getDirClaster(): string
     {
-        return $this->cache_dir .
-            self::DIR_SEP .
-            self::NAME_DIR;
+        return $this->cache_dir . self::NAME_DIR;
     }
 }
