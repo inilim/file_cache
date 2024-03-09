@@ -30,9 +30,8 @@ class FileNameCacheClaster extends FileNameCache
     {
         $dir = $this->getDirByIDAndName(\serialize($id), \serialize($claster_name));
         if (!\is_dir($dir)) return null;
-        $names = $this->getNames($dir);
+        $names = $this->getNamesAsStr($dir);
         if (!$names) {
-            // $this->removeDir($dir, []);
             return null;
         }
         return $this->read($dir, $names);

@@ -8,7 +8,7 @@ class FileNameCache
 {
     // protected const PART = 10;
     protected const PART = 248;
-    protected const MAX_COUNT_PART = 6;
+    protected const MAX_COUNT_PART = 5;
     protected const SEP_NAME = '-';
     protected const SEARCH = '/';
     protected const REPLACE = '_';
@@ -31,7 +31,7 @@ class FileNameCache
         if (!\is_dir($dir)) return false;
         $names = $this->getNames($dir);
         if (!$names) return false;
-        if (@\filemtime($dir) > \time()) return true;
+        if (\filemtime($dir) > \time()) return true;
         return false;
     }
 
@@ -58,7 +58,7 @@ class FileNameCache
         $dir = $this->getDirByID(\serialize($id));
         if (!\is_dir($dir)) return null;
         $names = $this->getNamesAsStr($dir);
-        if (!$names || @\filemtime($dir) < \time()) {
+        if (!$names || \filemtime($dir) < \time()) {
             return null;
         }
         return $this->read($dir, $names);
@@ -124,7 +124,7 @@ class FileNameCache
         );
         if ($data === false) {
             $this->removeDir($dir);
-            throw new \Exception($dir . ' | base64_decode failed');
+            return null;
         }
         if ('b:0;' === $data) return false;
         // при неудавшем десириализации выдает false, поэтому делаем проверку выше
@@ -241,6 +241,6 @@ class FileNameCache
             self::DIR_SEP .
             \substr($hash, 2, 2) .
             self::DIR_SEP .
-            \substr($hash, 4);
+            $hash;
     }
 }

@@ -8,7 +8,7 @@ class FileNameCache2
 {
     // protected const PART = 10;
     protected const PART = 248;
-    protected const MAX_COUNT_PART = 6;
+    protected const MAX_COUNT_PART = 5;
     protected const SEP_NAME = '-';
     protected const SEARCH = '/';
     protected const REPLACE = '_';
@@ -29,10 +29,10 @@ class FileNameCache2
     {
         $dir = $this->getDirByID(\serialize($id));
         if (!\is_dir($dir)) return false;
-        $names = $this->getNamesAsStr($dir);
+        $names = $this->getNames($dir);
         if (!$names) return false;
-        if ($this->read($dir, $names) === null) return false;
-        return true;
+        if (\filemtime($dir) > \time()) return true;
+        return false;
     }
 
     /**
@@ -58,7 +58,7 @@ class FileNameCache2
         $dir = $this->getDirByID(\serialize($id));
         if (!\is_dir($dir)) return null;
         $names = $this->getNamesAsStr($dir);
-        if (!$names) {
+        if (!$names || \filemtime($dir) < \time()) {
             return null;
         }
         return $this->read($dir, $names);
@@ -74,12 +74,12 @@ class FileNameCache2
         // TODO используем file_exists потому что бывает что финальная папка сохраняется как файл, причину такого поведения еще не нашел
         if (\file_exists($dir)) $this->removeDir($dir);
         if (!$this->createDir($dir)) return false;
-        $names = $this->createNamesData($data, $lifetime);
+        $names = $this->createNamesData($data);
         if (!$names) {
             $this->removeDir($dir, []);
             return false;
         }
-        return $this->saveData($dir, $names);
+        return $this->saveData($dir, $names, $lifetime);
     }
 
     /**
@@ -124,16 +124,13 @@ class FileNameCache2
         );
         if ($data === false) {
             $this->removeDir($dir);
-            throw new \Exception($dir . ' | base64_decode failed');
-        }
-        // при неудавшем десириализации выдает false, поэтому делаем проверку выше
-        $data = \unserialize($data);
-        if (!\is_array($data)) return null;
-        if (($data[0] ?? 0) < \time()) {
-            $this->removeDir($dir);
             return null;
         }
-        return $data[1] ?? null;
+        if ('b:0;' === $data) return false;
+        // при неудавшем десириализации выдает false, поэтому делаем проверку выше
+        $data = \unserialize($data);
+        if ($data === false) return null;
+        return $data;
     }
 
     /**
@@ -175,10 +172,10 @@ class FileNameCache2
      * @param mixed $data
      * @return string[]|array{}
      */
-    protected function createNamesData($data, int $lifetime): array
+    protected function createNamesData($data): array
     {
         if ($data === null) return [];
-        $base = \strtr(\base64_encode(\serialize([$lifetime, $data])), self::SEARCH, self::REPLACE);
+        $base = \strtr(\base64_encode(\serialize($data)), self::SEARCH, self::REPLACE);
         if ((\strlen($base) / self::PART) > self::MAX_COUNT_PART) throw new \Exception('the length of the data exceeds the limit');
         $i = 0;
         return \array_map(
@@ -195,7 +192,7 @@ class FileNameCache2
     /**
      * @param string[] $names
      */
-    protected function saveData(string $dir, array $names): bool
+    protected function saveData(string $dir, array $names, int $lifetime): bool
     {
         foreach ($names as $name) {
             // fopen,touch тут медленнее
@@ -204,7 +201,7 @@ class FileNameCache2
                 return false;
             }
         }
-        // @\touch($dir, $lifetime + \time());
+        @\touch($dir, $lifetime + \time());
         return true;
     }
 
@@ -244,6 +241,6 @@ class FileNameCache2
             self::DIR_SEP .
             \substr($hash, 2, 2) .
             self::DIR_SEP .
-            \substr($hash, 4);
+            $hash;
     }
 }
