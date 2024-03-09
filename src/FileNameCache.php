@@ -116,7 +116,7 @@ class FileNameCache
     {
         $data = \base64_decode(
             \strtr(
-                \preg_replace('#([0-9]{1}\-)#', '', $names),
+                \preg_replace('#([0-9]{1}\-)#', '', $names) ?? '',
                 self::REPLACE,
                 self::SEARCH,
             ),
@@ -145,9 +145,11 @@ class FileNameCache
         return \array_diff($files, ['.', '..']);
     }
 
-    protected function getNamesAsStr(string $dir, ?array $names = null): string
+    /**
+     */
+    protected function getNamesAsStr(string $dir): string
     {
-        return \implode('', ($names ?? $this->getNames($dir)));
+        return \implode('', $this->getNames($dir));
     }
 
     /**
@@ -174,7 +176,6 @@ class FileNameCache
     {
         if ($data === null) return [];
         $base = \strtr(\base64_encode(\serialize($data)), self::SEARCH, self::REPLACE);
-        // $base = \str_replace(self::SEARCH, self::REPLACE, \base64_encode(\serialize($data)));
         if ((\strlen($base) / self::PART) > self::MAX_COUNT_PART) throw new \Exception('the length of the data exceeds the limit');
         $i = 0;
         return \array_map(
@@ -188,6 +189,9 @@ class FileNameCache
         );
     }
 
+    /**
+     * @param string[] $names
+     */
     protected function saveData(string $dir, array $names, int $lifetime): bool
     {
         foreach ($names as $name) {

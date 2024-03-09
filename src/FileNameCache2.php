@@ -31,8 +31,8 @@ class FileNameCache2
         if (!\is_dir($dir)) return false;
         $names = $this->getNamesAsStr($dir);
         if (!$names) return false;
-        if (\substr($names, -10) > \time()) return true;
-        return false;
+        if ($this->read($dir, $names) === null) return false;
+        return true;
     }
 
     /**
@@ -59,10 +59,6 @@ class FileNameCache2
         if (!\is_dir($dir)) return null;
         $names = $this->getNamesAsStr($dir);
         if (!$names) {
-            return null;
-        }
-        if (\substr($names, -10) < \time()) {
-            $this->removeDir($dir);
             return null;
         }
         return $this->read($dir, $names);
@@ -120,7 +116,7 @@ class FileNameCache2
     {
         $data = \base64_decode(
             \strtr(
-                \preg_replace('#([0-9]{1}\-)#', '', \substr($names, 0, -10)),
+                \preg_replace('#([0-9]{1}\-)#', '', $names) ?? '',
                 self::REPLACE,
                 self::SEARCH,
             ),
@@ -130,11 +126,14 @@ class FileNameCache2
             $this->removeDir($dir);
             throw new \Exception($dir . ' | base64_decode failed');
         }
-        if ('b:0;' === $data) return false;
         // при неудавшем десириализации выдает false, поэтому делаем проверку выше
         $data = \unserialize($data);
-        if ($data === false) return null;
-        return $data;
+        if (!\is_array($data)) return null;
+        if (($data[0] ?? 0) < \time()) {
+            $this->removeDir($dir);
+            return null;
+        }
+        return $data[1] ?? null;
     }
 
     /**
@@ -149,9 +148,11 @@ class FileNameCache2
         return \array_diff($files, ['.', '..']);
     }
 
-    protected function getNamesAsStr(string $dir, ?array $names = null): string
+    /**
+     */
+    protected function getNamesAsStr(string $dir): string
     {
-        return \implode('', ($names ?? $this->getNames($dir)));
+        return \implode('', $this->getNames($dir));
     }
 
     /**
@@ -177,11 +178,10 @@ class FileNameCache2
     protected function createNamesData($data, int $lifetime): array
     {
         if ($data === null) return [];
-        $base = \strtr(\base64_encode(\serialize($data)), self::SEARCH, self::REPLACE);
-        // $base = \str_replace(self::SEARCH, self::REPLACE, \base64_encode(\serialize($data)));
+        $base = \strtr(\base64_encode(\serialize([$lifetime, $data])), self::SEARCH, self::REPLACE);
         if ((\strlen($base) / self::PART) > self::MAX_COUNT_PART) throw new \Exception('the length of the data exceeds the limit');
         $i = 0;
-        $base = \array_map(
+        return \array_map(
             function ($part) use (&$i) {
                 return ($i++) . self::SEP_NAME . $part;
             },
@@ -190,10 +190,11 @@ class FileNameCache2
                 self::PART
             )
         );
-        $base[] = \time() + $lifetime;
-        return $base;
     }
 
+    /**
+     * @param string[] $names
+     */
     protected function saveData(string $dir, array $names): bool
     {
         foreach ($names as $name) {
@@ -203,6 +204,7 @@ class FileNameCache2
                 return false;
             }
         }
+        // @\touch($dir, $lifetime + \time());
         return true;
     }
 
