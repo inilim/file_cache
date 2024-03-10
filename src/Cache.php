@@ -33,10 +33,8 @@ abstract class Cache
     {
         if (\is_int($ttl)) return $ttl;
         elseif ($ttl === null) return $this->default_ttl;
-        elseif ($ttl instanceof \DateInterval) {
-            $date_time = new \DateTime();
-            $date_time->add($ttl);
-            return $date_time->getTimestamp() - \time();
+        else {
+            return (new \DateTime)->add($ttl)->getTimestamp() - \time();
         }
     }
 
