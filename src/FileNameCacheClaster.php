@@ -34,7 +34,7 @@ class FileNameCacheClaster extends FileNameCache
         $dir = $this->getDirByIDAndName(\serialize($id), \serialize($claster_name));
         if (!\is_dir($dir)) return $default;
         $names = $this->getNamesAsStr($dir);
-        if (!$names) {
+        if (!$names || \filemtime($dir) < \time()) {
             return $default;
         }
         return $this->read($dir, $names) ?? $default;
@@ -43,14 +43,15 @@ class FileNameCacheClaster extends FileNameCache
     /**
      * @param mixed $id
      * @param mixed $claster_name
-     * @param mixed  $data
+     * @param mixed  $value
      */
-    public function setToClaster($id, $claster_name, mixed $data, null|int|\DateInterval $ttl = null): bool
+    public function setToClaster($id, $claster_name, $value, null|int|\DateInterval $ttl = null): bool
     {
         $dir = $this->getDirByIDAndName(\serialize($id), \serialize($claster_name));
+        // TODO используем file_exists потому что бывает что финальная папка сохраняется как файл, причину такого поведения еще не нашел
         if (\file_exists($dir)) $this->removeDir($dir);
         if (!$this->createDir($dir)) return false;
-        $names = $this->createNamesData($data);
+        $names = $this->createNamesData($value);
         if (!$names) {
             $this->removeDir($dir, []);
             return false;

@@ -85,7 +85,7 @@ class FileNameCache extends Cache implements CacheInterface
         if (!$names || \filemtime($dir) < \time()) {
             return $default;
         }
-        return $this->read($dir, $names);
+        return $this->read($dir, $names) ?? $default;
     }
 
     /**
@@ -121,12 +121,12 @@ class FileNameCache extends Cache implements CacheInterface
     }
 
     /**
-     * @param mixed $data
+     * @param mixed $value
      */
-    public function isCached($data): bool
+    public function isCached($value): bool
     {
-        if ($data === null) return false;
-        if ((\strlen(\base64_encode(\serialize($data))) / self::PART) > self::MAX_COUNT_PART) return false;
+        if ($value === null) return false;
+        if ((\strlen(\base64_encode(\serialize($value))) / self::PART) > self::MAX_COUNT_PART) return false;
         return true;
     }
 
@@ -163,10 +163,10 @@ class FileNameCache extends Cache implements CacheInterface
     protected function getNames(string $dir): array
     {
         // glob очень медленный
-        $files = @\scandir($dir);
-        if ($files === false) return [];
+        $n = @\scandir($dir);
+        if ($n === false) return [];
         // \sort($files, SORT_NATURAL);
-        return \array_diff($files, ['.', '..']);
+        return \array_diff($n, ['.', '..']);
     }
 
     /**
@@ -224,7 +224,7 @@ class FileNameCache extends Cache implements CacheInterface
             $names ??= $this->getNames($dir);
             if (!$names) return @\rmdir($dir);
             else {
-                \array_map(fn ($f) => @\unlink($dir . self::DIR_SEP . $f), $names);
+                \array_map(fn ($n) => @\unlink($dir . self::DIR_SEP . $n), $names);
                 return @\rmdir($dir);
             }
         } else {
