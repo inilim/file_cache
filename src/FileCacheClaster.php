@@ -15,13 +15,13 @@ class FileCacheClaster extends FileCache
      * @param mixed $id
      * @param mixed $claster_name
      */
-    public function getOrSaveFromClaster($id, $claster_name, Closure $data, int $lifetime = 3600): mixed
+    public function getOrSaveFromClaster($id, $claster_name, Closure $data, null|int|\DateInterval $ttl = null): mixed
     {
         $res = $this->getFromClaster($id, $claster_name);
         if ($res === null) {
             $res = $data() ?? null;
             if ($res === null) return null;
-            $this->saveToClaster($id, $claster_name, $res, $lifetime);
+            $this->setToClaster($id, $claster_name, $res, $ttl);
         }
         return $res;
     }
@@ -29,12 +29,13 @@ class FileCacheClaster extends FileCache
     /**
      * @param mixed $id
      * @param mixed $claster_name
+     * @param mixed $default
      */
-    public function getFromClaster($id, $claster_name): mixed
+    public function getFromClaster($id, $claster_name, $default = null): mixed
     {
         return $this->read(
             $this->getPathFileByIDAndName(\serialize($id), \serialize($claster_name))
-        );
+        ) ?? $default;
     }
 
     /**
@@ -42,7 +43,7 @@ class FileCacheClaster extends FileCache
      * @param mixed $claster_name
      * @param mixed $data
      */
-    public function saveToClaster($id, $claster_name, $data, int $lifetime = 3600): bool
+    public function setToClaster($id, $claster_name, $data, null|int|\DateInterval $ttl = null): bool
     {
         $hash  = \md5(\serialize($id), false);
         $dir = $this->getDirByIDAndName($hash, \serialize($claster_name));
@@ -50,7 +51,7 @@ class FileCacheClaster extends FileCache
         return $this->saveData(
             $dir . self::DIR_SEP . $hash,
             $data,
-            $lifetime
+            $this->getLifeTime($ttl)
         );
     }
 
