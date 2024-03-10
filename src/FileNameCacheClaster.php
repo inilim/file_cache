@@ -57,21 +57,60 @@ class FileNameCacheClaster extends FileNameCache
         return $this->saveData($dir, $names, $lifetime);
     }
 
+    /**
+     * @param mixed $id
+     * @param mixed $claster_name
+     */
+    public function deleteFromClaster($id, $claster_name): void
+    {
+        $this->deleteFiles(
+            $this->getDirByIDAndName(\serialize($id), \serialize($claster_name))
+        );
+    }
+
+    /**
+     * @param mixed $claster_name
+     */
+    public function deleteAllFromClaster($claster_name): void
+    {
+        $this->deleteFiles(
+            $this->getDirByName(\serialize($claster_name))
+        );
+    }
+
+    public function deleteAllClasters(): void
+    {
+        $this->deleteFiles($this->getDirClaster(), true);
+    }
+
     // ------------------------------------------------------------------
-    // ___
+    // protected
     // ------------------------------------------------------------------
 
     protected function getDirByIDAndName(string $id, string $claster_name): string
     {
         $hash = \md5($id, false);
-        return $this->cache_dir . self::NAME_DIR .
-            self::DIR_SEP .
-            \md5($claster_name, false) .
+        return $this->getDirByName($claster_name) .
             self::DIR_SEP .
             \substr($hash, 0, 2) .
             self::DIR_SEP .
             \substr($hash, 2, 2) .
             self::DIR_SEP .
             $hash;
+    }
+
+    protected function getDirByName(string $claster_name): string
+    {
+        return $this->getDirClaster() .
+            self::DIR_SEP .
+            \md5($claster_name, false);
+    }
+
+    /**
+     * main_dir{_clasters} |
+     */
+    protected function getDirClaster(): string
+    {
+        return $this->cache_dir . self::NAME_DIR;
     }
 }

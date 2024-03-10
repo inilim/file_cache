@@ -2,9 +2,10 @@
 
 namespace Inilim\FileCache;
 
+use Inilim\FileCache\Cache;
 use Closure;
 
-class FileNameCache
+class FileNameCache extends Cache
 {
     // protected const PART = 10;
     protected const PART = 248;
@@ -12,15 +13,6 @@ class FileNameCache
     protected const SEP_NAME = '-';
     protected const SEARCH = '/';
     protected const REPLACE = '_';
-    protected const DIR_SEP = \DIRECTORY_SEPARATOR;
-
-    protected readonly string $cache_dir;
-
-    public function __construct(
-        string $cache_dir = '/cache/file_name'
-    ) {
-        $this->cache_dir = \rtrim($cache_dir, '/');
-    }
 
     /**
      * @param mixed $id
@@ -151,22 +143,6 @@ class FileNameCache
     {
         return \implode('', $this->getNames($dir));
     }
-
-    /**
-     * @return string[]|array{}
-     */
-    // protected function scandir2(string $dir, string $id): array
-    // {
-    //     $needle = self::SEP_NAME . \md5($id, false) . self::SEP_NAME;
-    //     $res = @\opendir($dir);
-    //     if (!$res) return [];
-    //     $names = [];
-    //     while (($name = \readdir($res)) !== false) {
-    //         if (\str_contains($name, $needle)) $names[] = $name;
-    //     }
-    //     \closedir($res);
-    //     return $names;
-    // }
 
     /**
      * @param mixed $data

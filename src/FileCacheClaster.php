@@ -72,7 +72,7 @@ class FileCacheClaster extends FileCache
      */
     public function deleteFromClaster($id, $claster_name): void
     {
-        @\unlink(
+        $this->deleteFiles(
             $this->getPathFileByIDAndName(\serialize($id), \serialize($claster_name))
         );
     }
@@ -82,50 +82,22 @@ class FileCacheClaster extends FileCache
      */
     public function deleteAllFromClaster($claster_name): void
     {
-        $this->deleteAllFromDir(
+        $this->deleteFiles(
             $this->getDirByName(\serialize($claster_name))
         );
     }
 
     public function deleteAllClasters(): void
     {
-        $this->deleteAllFromDir(
-            $this->getDirClaster()
+        $this->deleteFiles(
+            $this->getDirClaster(),
+            true
         );
     }
+
     // ------------------------------------------------------------------
     // ___
     // ------------------------------------------------------------------
-
-    /**
-     * на рефакторинг
-     */
-    protected function deleteAllFromDir(string $dir): void
-    {
-        if (!\is_dir($dir)) return;
-        $it = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::SELF_FIRST
-        );
-        $dirs = [];
-        // удаляем файлы
-        foreach ($it as $dir_or_file) {
-            /** @var \SplFileInfo $dir_or_file */
-            $pathname = $dir_or_file->getPathname();
-            if (\is_dir($pathname)) $dirs[] = $pathname;
-            else @\unlink($pathname);
-        }
-        // INFO сортируем от дочерних к родителям
-        \usort($dirs, function ($a, $b) {
-            $la = \strlen($a);
-            $lb = \strlen($b);
-            if ($la < $lb) return 1;
-            elseif ($la == $lb) return 0;
-            return -1;
-        });
-        // удаляем директории
-        foreach ($dirs as $dir) @\rmdir($dir);
-    }
 
     /**
      * main_dir_{clasters}/[a-z]{36}/[a-z]{2}/[a-z]{36} |

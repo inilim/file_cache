@@ -2,27 +2,11 @@
 
 namespace Inilim\FileCache;
 
+use Inilim\FileCache\Cache;
 use Closure;
 
-class FileCache
+class FileCache extends Cache
 {
-   protected const DIR_SEP = \DIRECTORY_SEPARATOR;
-
-   protected int $count_read = 0;
-   protected readonly string $cache_dir;
-
-   /**
-    * Creates a FileCache object
-    */
-   public function __construct(
-      /**
-       * The root cache directory.
-       */
-      string $cache_dir = '/cache'
-   ) {
-      $this->cache_dir = \rtrim($cache_dir, '/');
-   }
-
    public function getCountRead(): int
    {
       return $this->count_read;
@@ -68,21 +52,12 @@ class FileCache
     */
    public function delete($id): void
    {
-      @\unlink(
-         $this->getPathFileByID(\serialize($id))
-      );
+      $this->deleteFiles($this->getPathFileByID(\serialize($id)));
    }
 
    public function deleteAll(): void
    {
-      if (!\is_dir($this->cache_dir)) return;
-      $it = new \RecursiveIteratorIterator(
-         new \RecursiveDirectoryIterator($this->cache_dir, \FilesystemIterator::SKIP_DOTS)
-      );
-      foreach ($it as $file) {
-         /** @var \SplFileInfo $file */
-         @\unlink($file->getPathname());
-      }
+      $this->deleteFiles($this->cache_dir, true);
    }
 
    /**
