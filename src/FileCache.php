@@ -3,23 +3,51 @@
 namespace Inilim\FileCache;
 
 use Inilim\FileCache\Cache;
+use Psr\SimpleCache\CacheInterface;
 use Closure;
 
-class FileCache extends Cache
+class FileCache extends Cache implements CacheInterface
 {
    public function getCountRead(): int
    {
       return $this->count_read;
    }
 
+   public function getMultiple(iterable $keys, mixed $default = null): iterable
+   {
+      $values = [];
+      foreach ($keys as $key) {
+         $values[$key] = $this->get($key, $default);
+      }
+      return $values;
+   }
+
+   public function setMultiple(iterable $values, null|int|\DateInterval $ttl = null): bool
+   {
+      foreach ($values as $key => $value) {
+         if (!$this->set($key, $value, $ttl)) return false;
+      }
+      return true;
+   }
+
+   public function deleteMultiple(iterable $keys): bool
+   {
+      foreach ($keys as $key) {
+         if (!$this->delete($key)) return false;
+      }
+      return true;
+   }
+
+
    /**
     * @param mixed $id
+    * @param mixed $default
     */
-   public function get($id): mixed
+   public function get($id, $default = null): mixed
    {
       return $this->read(
          $this->getPathFileByID(\serialize($id))
-      );
+      ) ?? $default;
    }
 
    /**
@@ -31,7 +59,7 @@ class FileCache extends Cache
       if ($res === null) {
          $res = $data() ?? null;
          if ($res === null) return null;
-         $this->save($id, $res, $lifetime);
+         $this->set($id, $res, $lifetime);
       }
       return $res;
    }
@@ -39,7 +67,7 @@ class FileCache extends Cache
    /**
     * @param mixed $id
     */
-   public function exist($id): bool
+   public function has($id): bool
    {
       $path_file = $this->getPathFileByID(\serialize($id));
       if (!\is_file($path_file)) return false;
@@ -50,28 +78,29 @@ class FileCache extends Cache
    /**
     * @param mixed $id
     */
-   public function delete($id): void
+   public function delete($id): bool
    {
-      $this->deleteFiles($this->getPathFileByID(\serialize($id)));
+      return $this->deleteFiles($this->getPathFileByID(\serialize($id)));
    }
 
-   public function deleteAll(): void
+   public function clear(): bool
    {
-      $this->deleteFiles($this->cache_dir, true);
+      return $this->deleteFiles($this->cache_dir, true);
    }
 
    /**
     * @param mixed  $id
-    * @param mixed  $data
+    * @param mixed  $value
     */
-   public function save($id, $data, int $lifetime = 3600): bool
+   public function set($id, $value, null|int|\DateInterval $ttl = null): bool
    {
-      if ($data === null) return false;
+      if ($value === null) return false;
       $hash = \md5(\serialize($id), false);
       $dir  = $this->getDirByID($hash);
       if (!$this->createDir($dir)) return false;
       $path_file = $dir . self::DIR_SEP . $hash;
-      return $this->saveData($path_file, $data, $lifetime);
+
+      return $this->saveData($path_file, $value, $this->getLifeTime($ttl));
    }
 
    // ------------------------------------------------------------------
@@ -102,12 +131,12 @@ class FileCache extends Cache
    }
 
    /**
-    * @param mixed $data
+    * @param mixed $value
     */
-   protected function saveData(string $path_file, $data, int $lifetime): bool
+   protected function saveData(string $path_file, $value, int $lifetime): bool
    {
       $expires_at = $lifetime + \time();
-      $ser = $expires_at . "\n" . \serialize($data);
+      $ser = $expires_at . "\n" . \serialize($value);
       $tmp = \dirname($path_file) . self::DIR_SEP . \uniqid(more_entropy: true);
 
       try {

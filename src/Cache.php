@@ -7,6 +7,7 @@ abstract class Cache
     protected const DIR_SEP = \DIRECTORY_SEPARATOR;
     protected readonly string $cache_dir;
     protected int $count_read = 0;
+    protected int $default_ttl = 3600;
 
     public function __construct(
         string $cache_dir
@@ -17,13 +18,25 @@ abstract class Cache
     /**
      * удаляет файл или директорию рекурсивно
      */
-    protected function deleteFiles(string $file, bool $save_main_dir = false): void
+    protected function deleteFiles(string $file, bool $save_main_dir = false): bool
     {
-        if (!\file_exists($file)) return;
+        if (!\file_exists($file)) return false;
         if (\is_file($file)) {
-            @\unlink($file);
+            return @\unlink($file);
         } else {
             $this->deleteAllFromDir($file, $save_main_dir);
+        }
+        return true;
+    }
+
+    protected function getLifeTime(null|int|\DateInterval $ttl): int
+    {
+        if (\is_int($ttl)) return $ttl;
+        elseif ($ttl === null) return $this->default_ttl;
+        elseif ($ttl instanceof \DateInterval) {
+            $date_time = new \DateTime();
+            $date_time->add($ttl);
+            return $date_time->getTimestamp() - \time();
         }
     }
 

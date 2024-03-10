@@ -3,9 +3,10 @@
 namespace Inilim\FileCache;
 
 use Inilim\FileCache\Cache;
+use Psr\SimpleCache\CacheInterface;
 use Closure;
 
-class FileNameCache extends Cache
+class FileNameCache extends Cache implements CacheInterface
 {
     // protected const PART = 10;
     protected const PART = 248;
@@ -14,10 +15,35 @@ class FileNameCache extends Cache
     protected const SEARCH = '/';
     protected const REPLACE = '_';
 
+    public function getMultiple(iterable $keys, mixed $default = null): iterable
+    {
+        $values = [];
+        foreach ($keys as $key) {
+            $values[$key] = $this->get($key, $default);
+        }
+        return $values;
+    }
+
+    public function setMultiple(iterable $values, null|int|\DateInterval $ttl = null): bool
+    {
+        foreach ($values as $key => $value) {
+            if (!$this->set($key, $value, $ttl)) return false;
+        }
+        return true;
+    }
+
+    public function deleteMultiple(iterable $keys): bool
+    {
+        foreach ($keys as $key) {
+            if (!$this->delete($key)) return false;
+        }
+        return true;
+    }
+
     /**
      * @param mixed $id
      */
-    public function existByID($id): bool
+    public function has($id): bool
     {
         $dir = $this->getDirByID(\serialize($id));
         if (!\is_dir($dir)) return false;
@@ -30,48 +56,54 @@ class FileNameCache extends Cache
     /**
      * @param mixed $id
      */
-    public function deleteByID($id): void
+    public function delete($id): bool
     {
         $dir = $this->getDirByID(\serialize($id));
-        if (!\is_dir($dir)) return;
+        if (!\is_dir($dir)) return false;
         $names = $this->getNames($dir);
         if (!$names) {
             $this->removeDir($dir, []);
-            return;
+            return false;
         }
-        $this->removeDir($dir, $names);
+        return $this->removeDir($dir, $names);
+    }
+
+    public function clear(): bool
+    {
+        return $this->deleteFiles($this->cache_dir, true);
     }
 
     /**
      * @param mixed $id
+     * @param mixed $default
      */
-    public function get($id): mixed
+    public function get($id, $default = null): mixed
     {
         $dir = $this->getDirByID(\serialize($id));
-        if (!\is_dir($dir)) return null;
+        if (!\is_dir($dir)) return $default;
         $names = $this->getNamesAsStr($dir);
         if (!$names || \filemtime($dir) < \time()) {
-            return null;
+            return $default;
         }
         return $this->read($dir, $names);
     }
 
     /**
      * @param mixed $id
-     * @param mixed  $data
+     * @param mixed  $value
      */
-    public function save($id, $data, int $lifetime = 3600): bool
+    public function set($id, $value, null|int|\DateInterval $ttl = null): bool
     {
         $dir = $this->getDirByID(\serialize($id));
         // TODO используем file_exists потому что бывает что финальная папка сохраняется как файл, причину такого поведения еще не нашел
         if (\file_exists($dir)) $this->removeDir($dir);
         if (!$this->createDir($dir)) return false;
-        $names = $this->createNamesData($data);
+        $names = $this->createNamesData($value);
         if (!$names) {
             $this->removeDir($dir, []);
             return false;
         }
-        return $this->saveData($dir, $names, $lifetime);
+        return $this->saveData($dir, $names, $this->getLifeTime($ttl));
     }
 
     /**
@@ -83,7 +115,7 @@ class FileNameCache extends Cache
         if ($res === null) {
             $res = $data() ?? null;
             if ($res === null) return null;
-            $this->save($id, $res, $lifetime);
+            $this->set($id, $res, $lifetime);
         }
         return $res;
     }
@@ -185,18 +217,18 @@ class FileNameCache extends Cache
      * TODO скорость записи такая медленная из-за очищения директории, rmdir не может удалить папку вместе с файлами
      * @param string[]|array{} $names передаем для экономии процессов
      */
-    protected function removeDir(string $dir, ?array $names = null): void
+    protected function removeDir(string $dir, ?array $names = null): bool
     {
-        if (!\file_exists($dir)) return;
+        if (!\file_exists($dir)) return false;
         if (\is_dir($dir)) {
             $names ??= $this->getNames($dir);
-            if (!$names) @\rmdir($dir);
+            if (!$names) return @\rmdir($dir);
             else {
                 \array_map(fn ($f) => @\unlink($dir . self::DIR_SEP . $f), $names);
-                @\rmdir($dir);
+                return @\rmdir($dir);
             }
         } else {
-            @\unlink($dir);
+            return @\unlink($dir);
         }
     }
 

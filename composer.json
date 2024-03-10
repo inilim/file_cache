@@ -14,7 +14,8 @@
         }
     ],
     "require": {
-        "php": "^8.2"
+        "php": "^8.2",
+        "psr/simple-cache": "^3.0"
     },
     "require-dev": {
         "phpstan/phpstan": "@stable",
