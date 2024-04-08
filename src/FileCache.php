@@ -99,7 +99,7 @@ class FileCache
    {
       $id        = \strval($id);
       $path_file = $this->getPathFileByID($id);
-      @\unlink($path_file);
+      $this->unlink($path_file);
    }
 
    /**
@@ -109,7 +109,7 @@ class FileCache
       $id           = \strval($id);
       $claster_name = \strval($claster_name);
       $path_file    = $this->getPathFileByIDFromClaster($id, $claster_name);
-      @\unlink($path_file);
+      $this->unlink($path_file);
    }
 
    public function deleteAll(bool $clasters = false): void
@@ -125,7 +125,7 @@ class FileCache
       }, $list_dir);
       $list_files = \array_filter($list_files, fn ($item) => \is_array($item));
       $list_files = \array_merge(...$list_files);
-      \array_map(fn ($f) => @\unlink($f), $list_files);
+      \array_map($this->unlink(...), $list_files);
    }
 
    /**
@@ -137,7 +137,7 @@ class FileCache
       $list_files = \array_map(fn ($d) => \glob($d . '/*.cache'), $list_dir);
       $list_files = \array_filter($list_files, fn ($item) => \is_array($item));
       $list_files = \array_merge(...$list_files);
-      \array_map(fn ($f) => @\unlink($f), $list_files);
+      \array_map($this->unlink(...), $list_files);
    }
 
    /**
@@ -148,7 +148,7 @@ class FileCache
       $id   = \strval($id);
       $dir  = $this->getDirByID($id);
       if (!$this->createDir($dir)) return false;
-      $path_file = $dir . DIRECTORY_SEPARATOR . \sha1($id, false) . '.cache';
+      $path_file = $dir . \DIRECTORY_SEPARATOR . \sha1($id, false) . '.cache';
       return $this->saveData($path_file, $data, $lifetime);
    }
 
@@ -160,13 +160,22 @@ class FileCache
       $claster_name = \strval($claster_name);
       $dir          = $this->getClasterDirByIDAndClasterName($id, $claster_name);
       if (!$this->createDir($dir)) return false;
-      $path_file = $dir . DIRECTORY_SEPARATOR . \sha1($id, false) . '.cache';
+      $path_file = $dir . \DIRECTORY_SEPARATOR . \sha1($id, false) . '.cache';
       return $this->saveData($path_file, $data, $lifetime);
    }
 
    // ------------------------------------------------------------------
    // protected
    // ------------------------------------------------------------------
+
+   protected function unlink(string $path_to_file): void
+   {
+      if (!\is_file($path_to_file)) return;
+      try {
+         @\unlink($path_to_file);
+      } catch (\Throwable) {
+      }
+   }
 
    /**
     * Fetches a directory to store the cache data
@@ -178,7 +187,7 @@ class FileCache
          $this->getCacheDir(),
          \substr($hash, 0, 2)
       ];
-      return \implode(DIRECTORY_SEPARATOR, $dirs);
+      return \implode(\DIRECTORY_SEPARATOR, $dirs);
    }
 
    /**
@@ -187,7 +196,7 @@ class FileCache
    {
       $hash = \sha1($id, false);
       $path = $this->getClasterDirByName($name);
-      return $path . DIRECTORY_SEPARATOR . \substr($hash, 0, 2);
+      return $path . \DIRECTORY_SEPARATOR . \substr($hash, 0, 2);
    }
 
    /**
@@ -199,7 +208,7 @@ class FileCache
          'clasters',
          \sha1(\strval($name), false),
       ];
-      return \implode(DIRECTORY_SEPARATOR, $dirs);
+      return \implode(\DIRECTORY_SEPARATOR, $dirs);
    }
 
    /**
@@ -214,7 +223,7 @@ class FileCache
    {
       $directory = $this->getDirByID($id);
       $hash      = \sha1($id, false);
-      $file      = $directory . DIRECTORY_SEPARATOR . $hash . '.cache';
+      $file      = $directory . \DIRECTORY_SEPARATOR . $hash . '.cache';
       return $file;
    }
 
@@ -224,7 +233,7 @@ class FileCache
    {
       $directory = $this->getClasterDirByIDAndClasterName($id, $claster_name);
       $hash      = \sha1($id, false);
-      $file      = $directory . DIRECTORY_SEPARATOR . $hash . '.cache';
+      $file      = $directory . \DIRECTORY_SEPARATOR . $hash . '.cache';
       return $file;
    }
 
@@ -237,16 +246,16 @@ class FileCache
       if (@\filemtime($path_file) > \time()) {
          $fp = @\fopen($path_file, 'r');
          if ($fp !== false) {
-            @\flock($fp, LOCK_SH);
+            @\flock($fp, \LOCK_SH);
             $cache_value = @\stream_get_contents($fp);
             if ($cache_value === false) $cache_value = '';
-            @\flock($fp, LOCK_UN);
+            @\flock($fp, \LOCK_UN);
             @\fclose($fp);
             $this->count_read++;
             return \unserialize($cache_value);
          }
       }
-      @\unlink($path_file);
+      $this->unlink($path_file);
       return null;
    }
 
@@ -264,10 +273,10 @@ class FileCache
       $dir        = \dirname($path_file);
       $serialized = \serialize($data);
 
-      $path_tmp_file = $dir . DIRECTORY_SEPARATOR . \uniqid(more_entropy: true);
+      $path_tmp_file = $dir . \DIRECTORY_SEPARATOR . \uniqid(more_entropy: true);
       $handle = \fopen($path_tmp_file, 'x');
       if ($handle === false) {
-         @\unlink($path_tmp_file);
+         $this->unlink($path_tmp_file);
          return false;
       }
       \fwrite($handle, $serialized);
@@ -276,7 +285,7 @@ class FileCache
       @\touch($path_tmp_file, $lifetime + \time());
 
       if (\rename($path_tmp_file, $path_file) === false) {
-         @\unlink($path_tmp_file);
+         $this->unlink($path_tmp_file);
          return false;
       }
 
@@ -290,7 +299,7 @@ class FileCache
    {
       if ($data === null) return false;
       $serialized = \serialize($data);
-      $result     = @\file_put_contents($path_file, $serialized, LOCK_EX);
+      $result     = @\file_put_contents($path_file, $serialized, \LOCK_EX);
       if ($result === false) return false;
       return @\touch($path_file, $lifetime + \time());
    }
