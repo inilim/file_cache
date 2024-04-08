@@ -1,23 +1,24 @@
 {
-    "name": "inilim/file_cache",
-    "description": "file_cache",
-    "type": "library",
-    "license": "MIT",
-    "autoload": {
-        "psr-4": {
-            "Inilim\\FileCache\\": "src/"
-        }
-    },
-    "authors": [
-        {
-            "name": "inilim"
-        }
-    ],
-    "minimum-stability": "dev",
-    "require": {
-        "php": "^8.2"
-    },
-    "require-dev": {
-        "phpstan/phpstan": "@stable"
+  "name": "inilim/file_cache",
+  "description": "file_cache",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Inilim\\FileCache\\": "src/"
     }
+  },
+  "authors": [
+    {
+      "name": "inilim"
+    }
+  ],
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "require": {
+    "php": "^8.2"
+  },
+  "require-dev": {
+    "phpstan/phpstan": "@stable"
+  }
 }
