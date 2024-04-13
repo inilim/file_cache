@@ -1,3 +1,5 @@
 /vendor
 /test.php
 /cache
+/test*.php
+/*.txt
