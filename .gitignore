@@ -1,6 +1,4 @@
 /vendor
-/test.php
-/test*.php
 /cache
 /*.txt
 /composer.lock

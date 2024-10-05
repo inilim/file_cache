@@ -17,9 +17,13 @@
         "php": "^8.2",
         "psr/simple-cache": "^3.0"
     },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
     "require-dev": {
         "phpstan/phpstan": "@stable",
         "dragon-code/benchmark": "2.6",
-        "symfony/cache": "7.0"
+        "symfony/cache": "7.0",
+        "symfony/stopwatch": "^7.1",
+        "inilim/dump": "dev-main"
     }
 }
