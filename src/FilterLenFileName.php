@@ -6,6 +6,9 @@ namespace Inilim\FileCache;
 
 use Inilim\FileCache\FilterInterface;
 
+/**
+ * @internal
+ */
 final class FilterLenFileName implements FilterInterface
 {
     protected int $len;

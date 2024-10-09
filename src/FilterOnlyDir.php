@@ -6,6 +6,9 @@ namespace Inilim\FileCache;
 
 use Inilim\FileCache\FilterInterface;
 
+/**
+ * @internal
+ */
 final class FilterOnlyDir implements FilterInterface
 {
     function __invoke(\SplFileInfo $splFileInfo): bool

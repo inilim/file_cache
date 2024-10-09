@@ -6,6 +6,9 @@ namespace Inilim\FileCache;
 
 use Inilim\FileCache\FilterInterface;
 
+/**
+ * @internal
+ */
 final class FilterRegexByPath implements FilterInterface
 {
     protected string $pattern;
