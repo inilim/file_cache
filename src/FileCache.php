@@ -173,7 +173,6 @@ final class FileCache
     public function deleteAll(bool $clasters = false): void
     {
         $dirs = $this->getAllDir();
-        // берем кластерные папки
         if ($clasters) {
             $dirs = \array_merge($dirs, $this->getAllClasterDir());
         }
