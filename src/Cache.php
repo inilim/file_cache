@@ -5,14 +5,14 @@ namespace Inilim\FileCache;
 abstract class Cache
 {
     protected const DIR_SEP = \DIRECTORY_SEPARATOR;
-    protected readonly string $cache_dir;
+    protected string $cache_dir;
     protected int $count_read = 0;
     protected int $default_ttl = 3600;
 
     public function __construct(
-        string $cache_dir
+        string $cacheDir
     ) {
-        $this->cache_dir = \rtrim($cache_dir, '/');
+        $this->cache_dir = \rtrim($cacheDir, '/');
     }
 
     /**
@@ -75,7 +75,7 @@ abstract class Cache
         // удаляем главную директорию
         if (!$save_main_dir) $dirs[] = $m_dir;
         // INFO сортируем от дочерних к родителям
-        \usort($dirs, function ($a, $b) {
+        \usort($dirs, static function ($a, $b) {
             $la = \strlen($a);
             $lb = \strlen($b);
             if ($la < $lb) return 1;

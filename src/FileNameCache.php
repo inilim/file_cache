@@ -184,7 +184,9 @@ class FileNameCache extends Cache implements CacheInterface
     {
         if ($data === null) return [];
         $base = \strtr(\base64_encode(\serialize($data)), self::SEARCH, self::REPLACE);
-        if ((\strlen($base) / self::PART) > self::MAX_COUNT_PART) throw new \Exception('the length of the data exceeds the limit');
+        if ((\strlen($base) / self::PART) > self::MAX_COUNT_PART) {
+            throw new \Exception('the length of the data exceeds the limit');
+        }
         $i = 0;
         return \array_map(
             function ($part) use (&$i) {
@@ -224,7 +226,7 @@ class FileNameCache extends Cache implements CacheInterface
             $names ??= $this->getNames($dir);
             if (!$names) return @\rmdir($dir);
             else {
-                \array_map(fn ($n) => @\unlink($dir . self::DIR_SEP . $n), $names);
+                \array_map(fn($n) => @\unlink($dir . self::DIR_SEP . $n), $names);
                 return @\rmdir($dir);
             }
         } else {
