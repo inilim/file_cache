@@ -270,17 +270,17 @@ final class FileCache
 
     protected function getPathFileByID(string $id): string
     {
-        $directory = $this->getDirByID($id);
-        $hash      = \sha1($id, false);
-        $file      = $directory . self::DIR_SEP . $hash . '.' . self::FORMAT;
+        $dir  = $this->getDirByID($id);
+        $hash = \sha1($id, false);
+        $file = $dir . self::DIR_SEP . $hash . '.' . self::FORMAT;
         return $file;
     }
 
     protected function getPathFileByIDFromClaster(string $id, string $clasterName): string
     {
-        $directory = $this->getClasterDirByIDAndClasterName($id, $clasterName);
-        $hash      = \sha1($id, false);
-        return $directory . self::DIR_SEP . $hash . '.' . self::FORMAT;
+        $dir  = $this->getClasterDirByIDAndClasterName($id, $clasterName);
+        $hash = \sha1($id, false);
+        return $dir . self::DIR_SEP . $hash . '.' . self::FORMAT;
     }
 
     /**
