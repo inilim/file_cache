@@ -6,21 +6,24 @@ use Closure;
 
 class FileCache
 {
-   protected int $count_read = 0;
+   protected int $countRead = 0;
+   /**
+    * The root cache directory.
+    */
+   protected string $cacheDir;
+
    /**
     * Creates a FileCache object
     */
    public function __construct(
-      /**
-       * The root cache directory.
-       */
-      protected string $cache_dir = '/cache'
+      string $cache_dir = '/cache'
    ) {
+      $this->cacheDir = $cache_dir;
    }
 
    public function getCountRead(): int
    {
-      return $this->count_read;
+      return $this->countRead;
    }
 
    /**
@@ -58,7 +61,6 @@ class FileCache
       return $res;
    }
 
-
    /**
     */
    public function getFromClaster(string|int|float $id, string|int|float $claster_name): mixed
@@ -69,9 +71,6 @@ class FileCache
       return $this->read($path_file);
    }
 
-   /**
-    * существует ли еще файл
-    */
    public function existByID(string|int|float $id): bool
    {
       $id        = \strval($id);
@@ -81,8 +80,6 @@ class FileCache
       return false;
    }
 
-   /**
-    */
    public function existByIDFromClaster(string|int|float $id, string|int|float $claster_name): bool
    {
       $id           = \strval($id);
@@ -93,8 +90,6 @@ class FileCache
       return false;
    }
 
-   /**
-    */
    public function deleteByID(string|int|float $id): void
    {
       $id        = \strval($id);
@@ -102,8 +97,6 @@ class FileCache
       $this->unlink($path_file);
    }
 
-   /**
-    */
    public function deleteByIDFromClaster(string|int|float $id, string|int|float $claster_name): void
    {
       $id           = \strval($id);
@@ -112,49 +105,66 @@ class FileCache
       $this->unlink($path_file);
    }
 
+   /**
+    * @param boolean $clasters including clustered folders
+    */
    public function deleteAll(bool $clasters = false): void
    {
-      $list_dir = $this->getAllDir();
+      $files = $this->getAllDir();
       // берем кластерные папки
       if (!$clasters) {
-         $list_dir = \array_merge($list_dir, $this->getAllClasterDir());
+         $files = \array_merge($files, $this->getAllClasterDir());
       }
-
-      $list_files = \array_map(function ($d) {
-         return \glob($d . '/*.cache');
-      }, $list_dir);
-      $list_files = \array_filter($list_files, fn ($item) => \is_array($item));
-      $list_files = \array_merge(...$list_files);
-      \array_map($this->unlink(...), $list_files);
+      $files = \array_map(
+         static fn($d) => \glob($d . '/*.cache'),
+         $files
+      );
+      $files = \array_filter(
+         $files,
+         static fn($item) => \is_array($item)
+      );
+      $files = \array_merge(...$files);
+      \array_map(
+         fn(string $file) => $this->unlink($file),
+         $files
+      );
    }
 
    /**
+    * @param string|int|float $name
     */
-   public function deleteAllByNameFromClaster(string|int|float $name): void
+   public function deleteAllByNameFromClaster($name): void
    {
-      $list_dir   = \glob($this->getClasterDirByName(\strval($name)) . '/*');
-      if ($list_dir === false) return;
-      $list_files = \array_map(fn ($d) => \glob($d . '/*.cache'), $list_dir);
-      $list_files = \array_filter($list_files, fn ($item) => \is_array($item));
-      $list_files = \array_merge(...$list_files);
-      \array_map($this->unlink(...), $list_files);
+      $files = \glob($this->getClasterDirByName(\strval($name)) . '/*');
+      if ($files === false) return;
+      $files = \array_map(static fn($d) => \glob($d . '/*.cache'), $files);
+      $files = \array_filter($files, static fn($item) => \is_array($item));
+      $files = \array_merge(...$files);
+      \array_map(function (string $file) {
+         $this->unlink($file);
+      }, $files);
    }
 
    /**
-    * @param mixed  $data
+    * @param string|integer|float $id
+    * @param mixed $data
     */
-   public function save(string|int|float $id, $data, int $lifetime = 3600): bool
+   public function save($id, $data, int $lifetime = 3600): bool
    {
-      $id   = \strval($id);
-      $dir  = $this->getDirByID($id);
+      $id  = \strval($id);
+      $dir = $this->getDirByID($id);
       if (!$this->createDir($dir)) return false;
       $path_file = $dir . \DIRECTORY_SEPARATOR . \sha1($id, false) . '.cache';
       return $this->saveData($path_file, $data, $lifetime);
    }
 
    /**
+    *
+    * @param string|integer|float $id
+    * @param string|integer|float $claster_name
+    * @param mixed $data
     */
-   public function saveToClaster(string|int|float $id, string|int|float $claster_name, mixed $data, int $lifetime = 3600): bool
+   public function saveToClaster($id, $claster_name, $data, int $lifetime = 3600): bool
    {
       $id           = \strval($id);
       $claster_name = \strval($claster_name);
@@ -173,7 +183,7 @@ class FileCache
       if (!\is_file($path_to_file)) return;
       try {
          @\unlink($path_to_file);
-      } catch (\Throwable) {
+      } catch (\Throwable $e) {
       }
    }
 
@@ -216,7 +226,7 @@ class FileCache
     */
    protected function getCacheDir(): string
    {
-      return $this->cache_dir;
+      return $this->cacheDir;
    }
 
    protected function getPathFileByID(string $id): string
@@ -251,7 +261,7 @@ class FileCache
             if ($cache_value === false) $cache_value = '';
             @\flock($fp, \LOCK_UN);
             @\fclose($fp);
-            $this->count_read++;
+            $this->countRead++;
             return \unserialize($cache_value);
          }
       }
@@ -273,7 +283,7 @@ class FileCache
       $dir        = \dirname($path_file);
       $serialized = \serialize($data);
 
-      $path_tmp_file = $dir . \DIRECTORY_SEPARATOR . \uniqid(more_entropy: true);
+      $path_tmp_file = $dir . \DIRECTORY_SEPARATOR . \uniqid('', true);
       $handle = \fopen($path_tmp_file, 'x');
       if ($handle === false) {
          $this->unlink($path_tmp_file);
@@ -311,7 +321,7 @@ class FileCache
    {
       $list_dir = \glob($this->getCacheDir() . '/*');
       if ($list_dir === false) return [];
-      $list_dir = \array_filter($list_dir, fn ($d) => \strlen(\basename($d)) == 2);
+      $list_dir = \array_filter($list_dir, fn($d) => \strlen(\basename($d)) == 2);
       return $list_dir;
    }
 
@@ -322,12 +332,12 @@ class FileCache
    {
       $list_dir = \glob($this->getCacheDir() . '/*');
       if ($list_dir === false || !$list_dir) return [];
-      $list_dir = \array_filter($list_dir, fn ($d) => \strlen(\basename($d)) > 2);
+      $list_dir = \array_filter($list_dir, fn($d) => \strlen(\basename($d)) > 2);
       if (!$list_dir) return [];
       $list_dir = \array_map(function ($d) {
          return \glob($d . '/*');
       }, $list_dir);
-      $list_dir = \array_filter($list_dir, fn ($item) => \is_array($item));
+      $list_dir = \array_filter($list_dir, fn($item) => \is_array($item));
       $list_dir = \array_merge(...$list_dir);
       return $list_dir;
    }
