@@ -1,2 +1,3 @@
 /Tests export-ignore
 /.git* export-ignore
+/cache export-ignore

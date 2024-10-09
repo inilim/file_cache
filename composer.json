@@ -16,7 +16,8 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
-        "php": "^7.4 | ^8.2"
+        "php": "^7.4 | ^8.2",
+        "inilim/dump": "dev-main"
     },
     "require-dev": {
         "phpstan/phpstan": "@stable"

@@ -1,344 +1,464 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Inilim\FileCache;
 
-use Closure;
+use Inilim\FileCache\FilterOnlyDir;
+use Inilim\FileCache\FilterInterface;
+use Inilim\FileCache\FilterLenFileName;
+use Inilim\FileCache\FilterRegexByPath;
 
-class FileCache
+final class FileCache
 {
-   protected int $countRead = 0;
-   /**
-    * The root cache directory.
-    */
-   protected string $cacheDir;
+    protected const FORMAT      = 'cache';
+    protected const CLASTER_DIR = 'clasters';
+    protected const DIR_SEP     = \DIRECTORY_SEPARATOR;
 
-   /**
-    * Creates a FileCache object
-    */
-   public function __construct(
-      string $cache_dir = '/cache'
-   ) {
-      $this->cacheDir = $cache_dir;
-   }
+    protected int $countRead = 0;
+    /**
+     * The root cache directory.
+     */
+    protected string $cacheDir;
 
-   public function getCountRead(): int
-   {
-      return $this->countRead;
-   }
+    /**
+     * Creates a FileCache object
+     */
+    public function __construct(
+        string $cacheDir = '/cache'
+    ) {
+        $cacheDir = \rtrim($cacheDir, '/');
 
-   /**
-    */
-   public function get(string|int|float $id): mixed
-   {
-      $id        = \strval($id);
-      $path_file = $this->getPathFileByID($id);
-      return $this->read($path_file);
-   }
+        if (!\is_dir($cacheDir)) {
+            throw new \Exception(\sprintf(
+                'directory "%s" not found',
+                $cacheDir
+            ));
+        }
 
-   /**
-    */
-   public function getOrSave(string|int|float $id, Closure $data, int $lifetime = 3600): mixed
-   {
-      $res = $this->get($id);
-      if ($res === null) {
-         $res = $data() ?? null;
-         if ($res === null) return null;
-         $this->save($id, $res, $lifetime);
-      }
-      return $res;
-   }
+        $this->cacheDir = $cacheDir;
+    }
 
-   /**
-    */
-   public function getOrSaveFromClaster(string|int|float $id, string|int|float $claster_name, Closure $data, int $lifetime = 3600): mixed
-   {
-      $res = $this->getFromClaster($id, $claster_name);
-      if ($res === null) {
-         $res = $data() ?? null;
-         if ($res === null) return null;
-         $this->saveToClaster($id, $claster_name, $res, $lifetime);
-      }
-      return $res;
-   }
+    public function getCountRead(): int
+    {
+        return $this->countRead;
+    }
 
-   /**
-    */
-   public function getFromClaster(string|int|float $id, string|int|float $claster_name): mixed
-   {
-      $id           = \strval($id);
-      $claster_name = \strval($claster_name);
-      $path_file    = $this->getPathFileByIDFromClaster($id, $claster_name);
-      return $this->read($path_file);
-   }
+    /**
+     * Fetches a base directory to store the cache data
+     */
+    public function getCacheDir(): string
+    {
+        return $this->cacheDir;
+    }
 
-   public function existByID(string|int|float $id): bool
-   {
-      $id        = \strval($id);
-      $path_file = $this->getPathFileByID($id);
-      if (!\is_file($path_file)) return false;
-      if (@\filemtime($path_file) > \time()) return true;
-      return false;
-   }
+    /**
+     * @param string|int|float $id
+     * @return mixed
+     */
+    public function get($id)
+    {
+        $id        = \strval($id);
+        $pathFile = $this->getPathFileByID($id);
+        return $this->read($pathFile);
+    }
 
-   public function existByIDFromClaster(string|int|float $id, string|int|float $claster_name): bool
-   {
-      $id           = \strval($id);
-      $claster_name = \strval($claster_name);
-      $path_file    = $this->getPathFileByIDFromClaster($id, $claster_name);
-      if (!\is_file($path_file)) return false;
-      if (@\filemtime($path_file) > \time()) return true;
-      return false;
-   }
+    /**
+     * @param string|int|float $id
+     * @return mixed
+     */
+    public function getOrSave($id, \Closure $data, int $lifetime = 3600)
+    {
+        $res = $this->get($id);
+        if ($res === null) {
+            $res = $data->__invoke() ?? null;
+            if ($res === null) return null;
+            $this->save($id, $res, $lifetime);
+        }
+        return $res;
+    }
 
-   public function deleteByID(string|int|float $id): void
-   {
-      $id        = \strval($id);
-      $path_file = $this->getPathFileByID($id);
-      $this->unlink($path_file);
-   }
+    /**
+     * @param string|int|float $id
+     * @param string|int|float $clasterName
+     * @return mixed
+     */
+    public function getOrSaveFromClaster($id, $clasterName, \Closure $data, int $lifetime = 3600)
+    {
+        $res = $this->getFromClaster($id, $clasterName);
+        if ($res === null) {
+            $res = $data->__invoke() ?? null;
+            if ($res === null) return null;
+            $this->saveToClaster($id, $clasterName, $res, $lifetime);
+        }
+        return $res;
+    }
 
-   public function deleteByIDFromClaster(string|int|float $id, string|int|float $claster_name): void
-   {
-      $id           = \strval($id);
-      $claster_name = \strval($claster_name);
-      $path_file    = $this->getPathFileByIDFromClaster($id, $claster_name);
-      $this->unlink($path_file);
-   }
+    /**
+     * @param string|int|float $id
+     * @param string|int|float $clasterName
+     * @return mixed
+     */
+    public function getFromClaster($id, $clasterName)
+    {
+        $id          = \strval($id);
+        $clasterName = \strval($clasterName);
+        $pathFile   = $this->getPathFileByIDFromClaster($id, $clasterName);
+        return $this->read($pathFile);
+    }
 
-   /**
-    * @param boolean $clasters including clustered folders
-    */
-   public function deleteAll(bool $clasters = false): void
-   {
-      $files = $this->getAllDir();
-      // берем кластерные папки
-      if (!$clasters) {
-         $files = \array_merge($files, $this->getAllClasterDir());
-      }
-      $files = \array_map(
-         static fn($d) => \glob($d . '/*.cache'),
-         $files
-      );
-      $files = \array_filter(
-         $files,
-         static fn($item) => \is_array($item)
-      );
-      $files = \array_merge(...$files);
-      \array_map(
-         fn(string $file) => $this->unlink($file),
-         $files
-      );
-   }
+    /**
+     * @param string|int|float $id
+     */
+    public function existByID($id): bool
+    {
+        $id       = \strval($id);
+        $pathFile = $this->getPathFileByID($id);
+        if (!\is_file($pathFile)) return false;
+        if (@\filemtime($pathFile) > \time()) return true;
+        return false;
+    }
 
-   /**
-    * @param string|int|float $name
-    */
-   public function deleteAllByNameFromClaster($name): void
-   {
-      $files = \glob($this->getClasterDirByName(\strval($name)) . '/*');
-      if ($files === false) return;
-      $files = \array_map(static fn($d) => \glob($d . '/*.cache'), $files);
-      $files = \array_filter($files, static fn($item) => \is_array($item));
-      $files = \array_merge(...$files);
-      \array_map(function (string $file) {
-         $this->unlink($file);
-      }, $files);
-   }
+    /**
+     * @param string|int|float $id
+     * @param string|int|float $clasterName
+     */
+    public function existByIDFromClaster($id, $clasterName): bool
+    {
+        $id          = \strval($id);
+        $clasterName = \strval($clasterName);
+        $pathFile   = $this->getPathFileByIDFromClaster($id, $clasterName);
+        if (!\is_file($pathFile)) return false;
+        if (@\filemtime($pathFile) > \time()) return true;
+        return false;
+    }
 
-   /**
-    * @param string|integer|float $id
-    * @param mixed $data
-    */
-   public function save($id, $data, int $lifetime = 3600): bool
-   {
-      $id  = \strval($id);
-      $dir = $this->getDirByID($id);
-      if (!$this->createDir($dir)) return false;
-      $path_file = $dir . \DIRECTORY_SEPARATOR . \sha1($id, false) . '.cache';
-      return $this->saveData($path_file, $data, $lifetime);
-   }
+    /**
+     * @param string|integer|float $id
+     */
+    public function deleteByID($id): void
+    {
+        $id         = \strval($id);
+        $pathToFile = $this->getPathFileByID($id);
+        $this->unlink($pathToFile);
+    }
 
-   /**
-    *
-    * @param string|integer|float $id
-    * @param string|integer|float $claster_name
-    * @param mixed $data
-    */
-   public function saveToClaster($id, $claster_name, $data, int $lifetime = 3600): bool
-   {
-      $id           = \strval($id);
-      $claster_name = \strval($claster_name);
-      $dir          = $this->getClasterDirByIDAndClasterName($id, $claster_name);
-      if (!$this->createDir($dir)) return false;
-      $path_file = $dir . \DIRECTORY_SEPARATOR . \sha1($id, false) . '.cache';
-      return $this->saveData($path_file, $data, $lifetime);
-   }
+    /**
+     * @param string|int|float $id
+     * @param string|int|float $clasterName
+     */
+    public function deleteByIDFromClaster($id, $clasterName): void
+    {
+        $id          = \strval($id);
+        $clasterName = \strval($clasterName);
+        $pathToFile  = $this->getPathFileByIDFromClaster($id, $clasterName);
+        $this->unlink($pathToFile);
+    }
 
-   // ------------------------------------------------------------------
-   // protected
-   // ------------------------------------------------------------------
+    /**
+     * @param bool $clasters including clustered folders
+     */
+    public function deleteAll(bool $clasters = false): void
+    {
+        $dirs = $this->getAllDir();
+        // берем кластерные папки
+        if ($clasters) {
+            $dirs = \array_merge($dirs, $this->getAllClasterDir());
+        }
+        $files = \array_map(
+            fn($d) => \glob($d . '/*.' . self::FORMAT),
+            $dirs
+        );
+        unset($dirs);
+        \array_map(
+            fn(string $pathToFile) => $this->unlink($pathToFile),
+            \array_merge(...$files)
+        );
+    }
 
-   protected function unlink(string $path_to_file): void
-   {
-      if (!\is_file($path_to_file)) return;
-      try {
-         @\unlink($path_to_file);
-      } catch (\Throwable $e) {
-      }
-   }
+    /**
+     * @param string|int|float $name
+     */
+    public function deleteAllByNameFromClaster($name): void
+    {
+        $dirs = $this->getDirRecursive(
+            $this->getClasterDirByName(\strval($name)),
+            [
+                new FilterLenFileName(2),
+                new FilterOnlyDir,
+            ]
+        );
 
-   /**
-    * Fetches a directory to store the cache data
-    */
-   protected function getDirByID(string $id): string
-   {
-      $hash = \sha1($id, false);
-      $dirs = [
-         $this->getCacheDir(),
-         \substr($hash, 0, 2)
-      ];
-      return \implode(\DIRECTORY_SEPARATOR, $dirs);
-   }
+        if (!$dirs) return;
+        $files = \array_map(fn($d) => \glob($d . '/*.' . self::FORMAT), $dirs);
+        unset($dirs);
+        $files = \array_filter($files, static fn($item) => \is_array($item));
+        $files = \array_merge(...$files);
+        \array_map(
+            function (string $pathToFile) {
+                $this->unlink($pathToFile);
+            },
+            $files
+        );
+    }
 
-   /**
-    */
-   protected function getClasterDirByIDAndClasterName(string $id, string $name): string
-   {
-      $hash = \sha1($id, false);
-      $path = $this->getClasterDirByName($name);
-      return $path . \DIRECTORY_SEPARATOR . \substr($hash, 0, 2);
-   }
+    /**
+     * @param string|integer|float $id
+     * @param mixed $data
+     */
+    public function save($id, $data, int $lifetime = 3600): bool
+    {
+        $id  = \strval($id);
+        $dir = $this->getDirByID($id);
+        if (!$this->createDir($dir)) return false;
+        $pathFile = $dir . self::DIR_SEP . \sha1($id, false) . '.' . self::FORMAT;
+        return $this->saveData($pathFile, $data, $lifetime);
+    }
 
-   /**
-    */
-   protected function getClasterDirByName(string $name): string
-   {
-      $dirs = [
-         $this->getCacheDir(),
-         'clasters',
-         \sha1(\strval($name), false),
-      ];
-      return \implode(\DIRECTORY_SEPARATOR, $dirs);
-   }
+    /**
+     *
+     * @param string|integer|float $id
+     * @param string|integer|float $clasterName
+     * @param mixed $data
+     */
+    public function saveToClaster($id, $clasterName, $data, int $lifetime = 3600): bool
+    {
+        $id          = \strval($id);
+        $clasterName = \strval($clasterName);
+        $dir         = $this->getClasterDirByIDAndClasterName($id, $clasterName);
+        if (!$this->createDir($dir)) return false;
+        $pathFile = $dir . self::DIR_SEP . \sha1($id, false) . '.' . self::FORMAT;
+        return $this->saveData($pathFile, $data, $lifetime);
+    }
 
-   /**
-    * Fetches a base directory to store the cache data
-    */
-   protected function getCacheDir(): string
-   {
-      return $this->cacheDir;
-   }
+    // ------------------------------------------------------------------
+    // protected
+    // ------------------------------------------------------------------
 
-   protected function getPathFileByID(string $id): string
-   {
-      $directory = $this->getDirByID($id);
-      $hash      = \sha1($id, false);
-      $file      = $directory . \DIRECTORY_SEPARATOR . $hash . '.cache';
-      return $file;
-   }
+    protected function unlink(string $pathToFile): void
+    {
+        if (!\is_file($pathToFile)) return;
+        try {
+            @\unlink($pathToFile);
+        } catch (\Throwable $e) {
+        }
+    }
 
-   /**
-    */
-   protected function getPathFileByIDFromClaster(string $id, string $claster_name): string
-   {
-      $directory = $this->getClasterDirByIDAndClasterName($id, $claster_name);
-      $hash      = \sha1($id, false);
-      $file      = $directory . \DIRECTORY_SEPARATOR . $hash . '.cache';
-      return $file;
-   }
+    /**
+     * Fetches a directory to store the cache data
+     */
+    protected function getDirByID(string $id): string
+    {
+        $hash = \sha1($id, false);
+        $dirs = [
+            $this->getCacheDir(),
+            \substr($hash, 0, 2)
+        ];
+        return \implode(self::DIR_SEP, $dirs);
+    }
 
-   /**
-    */
-   protected function read(string $path_file): mixed
-   {
-      if (!\is_file($path_file) || !\is_readable($path_file)) return null;
+    protected function getClasterDirByIDAndClasterName(string $id, string $name): string
+    {
+        $hash = \sha1($id, false);
+        $path = $this->getClasterDirByName($name);
+        return $path . self::DIR_SEP . \substr($hash, 0, 2);
+    }
 
-      if (@\filemtime($path_file) > \time()) {
-         $fp = @\fopen($path_file, 'r');
-         if ($fp !== false) {
-            @\flock($fp, \LOCK_SH);
-            $cache_value = @\stream_get_contents($fp);
-            if ($cache_value === false) $cache_value = '';
-            @\flock($fp, \LOCK_UN);
-            @\fclose($fp);
-            $this->countRead++;
-            return \unserialize($cache_value);
-         }
-      }
-      $this->unlink($path_file);
-      return null;
-   }
+    protected function getClasterDir(): string
+    {
+        return \implode(
+            self::DIR_SEP,
+            [
+                $this->getCacheDir(),
+                self::CLASTER_DIR,
+            ]
+        );
+    }
 
-   protected function createDir(string $dir): bool
-   {
-      if (!\is_dir($dir)) {
-         if (@!\mkdir($dir, 0755, true)) return false;
-      }
-      return true;
-   }
+    protected function getClasterDirByName(string $name): string
+    {
+        return \implode(
+            self::DIR_SEP,
+            [
+                $this->getClasterDir(),
+                \sha1(\strval($name), false),
+            ]
+        );
+    }
 
-   protected function saveData(string $path_file, mixed $data, int $lifetime): bool
-   {
-      if ($data === null) return false;
-      $dir        = \dirname($path_file);
-      $serialized = \serialize($data);
+    protected function getPathFileByID(string $id): string
+    {
+        $directory = $this->getDirByID($id);
+        $hash      = \sha1($id, false);
+        $file      = $directory . self::DIR_SEP . $hash . '.' . self::FORMAT;
+        return $file;
+    }
 
-      $path_tmp_file = $dir . \DIRECTORY_SEPARATOR . \uniqid('', true);
-      $handle = \fopen($path_tmp_file, 'x');
-      if ($handle === false) {
-         $this->unlink($path_tmp_file);
-         return false;
-      }
-      \fwrite($handle, $serialized);
-      \fclose($handle);
+    protected function getPathFileByIDFromClaster(string $id, string $clasterName): string
+    {
+        $directory = $this->getClasterDirByIDAndClasterName($id, $clasterName);
+        $hash      = \sha1($id, false);
+        $file      = $directory . self::DIR_SEP . $hash . '.' . self::FORMAT;
+        return $file;
+    }
 
-      @\touch($path_tmp_file, $lifetime + \time());
+    /**
+     * @return mixed
+     */
+    protected function read(string $pathToFile)
+    {
+        if (!\is_file($pathToFile) || !\is_readable($pathToFile)) return null;
 
-      if (\rename($path_tmp_file, $path_file) === false) {
-         $this->unlink($path_tmp_file);
-         return false;
-      }
+        if (@\filemtime($pathToFile) > \time()) {
+            $fp = @\fopen($pathToFile, 'r');
+            if ($fp !== false) {
+                @\flock($fp, \LOCK_SH);
+                $cacheValue = @\stream_get_contents($fp);
+                if ($cacheValue === false) $cacheValue = '';
+                @\flock($fp, \LOCK_UN);
+                @\fclose($fp);
+                $this->countRead++;
+                return \unserialize($cacheValue);
+            }
+        }
+        $this->unlink($pathToFile);
+        return null;
+    }
 
-      return true;
-   }
+    protected function createDir(string $dir): bool
+    {
+        if (!\is_dir($dir)) {
+            if (@!\mkdir($dir, 0755, true)) return false;
+        }
+        return true;
+    }
 
-   /**
-    * старя реализация
-    */
-   protected function _saveData(string $path_file, mixed $data, int $lifetime): bool
-   {
-      if ($data === null) return false;
-      $serialized = \serialize($data);
-      $result     = @\file_put_contents($path_file, $serialized, \LOCK_EX);
-      if ($result === false) return false;
-      return @\touch($path_file, $lifetime + \time());
-   }
+    /**
+     * @param mixed $data
+     */
+    protected function saveData(string $pathFile, $data, int $lifetime): bool
+    {
+        if ($data === null) return false;
+        $dir        = \dirname($pathFile);
+        $serialized = \serialize($data);
 
-   /**
-    * @return array<string>
-    */
-   protected function getAllDir(): array
-   {
-      $list_dir = \glob($this->getCacheDir() . '/*');
-      if ($list_dir === false) return [];
-      $list_dir = \array_filter($list_dir, fn($d) => \strlen(\basename($d)) == 2);
-      return $list_dir;
-   }
+        $pathToTmpFile = $dir . self::DIR_SEP . \uniqid('', true);
+        $handle      = \fopen($pathToTmpFile, 'x');
+        if ($handle === false) {
+            $this->unlink($pathToTmpFile);
+            return false;
+        }
+        \fwrite($handle, $serialized);
+        \fclose($handle);
 
-   /**
-    * @return array<string>
-    */
-   protected function getAllClasterDir(): array
-   {
-      $list_dir = \glob($this->getCacheDir() . '/*');
-      if ($list_dir === false || !$list_dir) return [];
-      $list_dir = \array_filter($list_dir, fn($d) => \strlen(\basename($d)) > 2);
-      if (!$list_dir) return [];
-      $list_dir = \array_map(function ($d) {
-         return \glob($d . '/*');
-      }, $list_dir);
-      $list_dir = \array_filter($list_dir, fn($item) => \is_array($item));
-      $list_dir = \array_merge(...$list_dir);
-      return $list_dir;
-   }
+        @\touch($pathToTmpFile, $lifetime + \time());
+
+        if (\rename($pathToTmpFile, $pathFile) === false) {
+            $this->unlink($pathToTmpFile);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * старя реализация
+     */
+    protected function _saveData(string $pathFile, $data, int $lifetime): bool
+    {
+        if ($data === null) return false;
+        $serialized = \serialize($data);
+        $result     = @\file_put_contents($pathFile, $serialized, \LOCK_EX);
+        if ($result === false) return false;
+        return @\touch($pathFile, $lifetime + \time());
+    }
+
+    /**
+     * @return string[]
+     */
+    protected function getAllDir(): array
+    {
+        return $this->getDirRecursive(
+            $this->getCacheDir(),
+            [
+                new FilterLenFileName(2),
+                new FilterOnlyDir,
+                new FilterRegexByPath('#[\\\/]{1}' . \preg_quote(self::CLASTER_DIR) . '[\\\/]{1}#'),
+            ]
+        );
+    }
+
+    /**
+     * @return string[]
+     */
+    protected function getAllClasterDir(): array
+    {
+        return $this->getDirRecursive(
+            $this->getClasterDir(),
+            [
+                new FilterLenFileName(2),
+                new FilterOnlyDir,
+            ]
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 
+    // ------------------------------------------------------------------
+
+    /**
+     * @return \RecursiveIteratorIterator<\SplFileInfo>|null
+     */
+    protected function getIteratorByDir(string $dir): ?\RecursiveIteratorIterator
+    {
+        if (!\is_dir($dir)) {
+            return null;
+        }
+
+        $directoryIterator = new \RecursiveDirectoryIterator(
+            $dir,
+            \FilesystemIterator::SKIP_DOTS
+        );
+
+        $iteratorIterator = new \RecursiveIteratorIterator(
+            $directoryIterator,
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        return $iteratorIterator;
+    }
+
+    /**
+     * @param FilterInterface[] $filters
+     * @return string[]
+     */
+    protected function getDirRecursive(string $dir, array $filters = []): array
+    {
+        $iteratorIterator = $this->getIteratorByDir($dir);
+        if ($iteratorIterator === null) return [];
+
+        $dirs = [];
+        foreach ($iteratorIterator as $splFileInfo) {
+            /** @var \SplFileInfo $splFileInfo */
+            if (!$this->filter($splFileInfo, $filters)) {
+                continue;
+            }
+            $dirs[] = $splFileInfo->getPathname();
+        }
+        return $dirs;
+    }
+
+    /**
+     * @param FilterInterface[] $filters
+     */
+    protected function filter(\SplFileInfo $splFileInfo, array $filters = []): bool
+    {
+        foreach ($filters as $filter) {
+            if (!$filter->__invoke($splFileInfo)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
