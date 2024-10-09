@@ -36,7 +36,16 @@ final class FileCache
             ));
         }
 
-        $this->cacheDir = $cacheDir;
+        $realPath = \realpath($cacheDir);
+
+        if ($realPath === false) {
+            throw new \Exception(\sprintf(
+                'fail get absolute pathname from "%s"',
+                $cacheDir
+            ));
+        }
+
+        $this->cacheDir = $realPath;
     }
 
     public function getCountRead(): int
@@ -58,9 +67,9 @@ final class FileCache
      */
     public function get($id)
     {
-        $id        = \strval($id);
-        $pathFile = $this->getPathFileByID($id);
-        return $this->read($pathFile);
+        return $this->read(
+            $this->getPathFileByID(\strval($id))
+        );
     }
 
     /**
@@ -101,10 +110,11 @@ final class FileCache
      */
     public function getFromClaster($id, $clasterName)
     {
-        $id          = \strval($id);
-        $clasterName = \strval($clasterName);
-        $pathFile   = $this->getPathFileByIDFromClaster($id, $clasterName);
-        return $this->read($pathFile);
+        $pathToFile   = $this->getPathFileByIDFromClaster(
+            \strval($id),
+            \strval($clasterName)
+        );
+        return $this->read($pathToFile);
     }
 
     /**
@@ -112,10 +122,9 @@ final class FileCache
      */
     public function existByID($id): bool
     {
-        $id       = \strval($id);
-        $pathFile = $this->getPathFileByID($id);
-        if (!\is_file($pathFile)) return false;
-        if (@\filemtime($pathFile) > \time()) return true;
+        $pathToFile = $this->getPathFileByID(\strval($id));
+        if (!\is_file($pathToFile)) return false;
+        if (@\filemtime($pathToFile) > \time()) return true;
         return false;
     }
 
@@ -125,11 +134,12 @@ final class FileCache
      */
     public function existByIDFromClaster($id, $clasterName): bool
     {
-        $id          = \strval($id);
-        $clasterName = \strval($clasterName);
-        $pathFile   = $this->getPathFileByIDFromClaster($id, $clasterName);
-        if (!\is_file($pathFile)) return false;
-        if (@\filemtime($pathFile) > \time()) return true;
+        $pathToFile = $this->getPathFileByIDFromClaster(
+            \strval($id),
+            \strval($clasterName)
+        );
+        if (!\is_file($pathToFile)) return false;
+        if (@\filemtime($pathToFile) > \time()) return true;
         return false;
     }
 
@@ -138,8 +148,9 @@ final class FileCache
      */
     public function deleteByID($id): void
     {
-        $id         = \strval($id);
-        $pathToFile = $this->getPathFileByID($id);
+        $pathToFile = $this->getPathFileByID(
+            \strval($id)
+        );
         $this->unlink($pathToFile);
     }
 
@@ -149,9 +160,10 @@ final class FileCache
      */
     public function deleteByIDFromClaster($id, $clasterName): void
     {
-        $id          = \strval($id);
-        $clasterName = \strval($clasterName);
-        $pathToFile  = $this->getPathFileByIDFromClaster($id, $clasterName);
+        $pathToFile  = $this->getPathFileByIDFromClaster(
+            \strval($id),
+            \strval($clasterName)
+        );
         $this->unlink($pathToFile);
     }
 
@@ -165,15 +177,7 @@ final class FileCache
         if ($clasters) {
             $dirs = \array_merge($dirs, $this->getAllClasterDir());
         }
-        $files = \array_map(
-            fn($d) => \glob($d . '/*.' . self::FORMAT),
-            $dirs
-        );
-        unset($dirs);
-        \array_map(
-            fn(string $pathToFile) => $this->unlink($pathToFile),
-            \array_merge(...$files)
-        );
+        $this->unlinkAllFromDirs($dirs);
     }
 
     /**
@@ -181,25 +185,14 @@ final class FileCache
      */
     public function deleteAllByNameFromClaster($name): void
     {
-        $dirs = $this->getDirRecursive(
+        $dirs = $this->getFileRecursive(
             $this->getClasterDirByName(\strval($name)),
             [
                 new FilterLenFileName(2),
                 new FilterOnlyDir,
             ]
         );
-
-        if (!$dirs) return;
-        $files = \array_map(fn($d) => \glob($d . '/*.' . self::FORMAT), $dirs);
-        unset($dirs);
-        $files = \array_filter($files, static fn($item) => \is_array($item));
-        $files = \array_merge(...$files);
-        \array_map(
-            function (string $pathToFile) {
-                $this->unlink($pathToFile);
-            },
-            $files
-        );
+        $this->unlinkAllFromDirs($dirs);
     }
 
     /**
@@ -211,12 +204,11 @@ final class FileCache
         $id  = \strval($id);
         $dir = $this->getDirByID($id);
         if (!$this->createDir($dir)) return false;
-        $pathFile = $dir . self::DIR_SEP . \sha1($id, false) . '.' . self::FORMAT;
-        return $this->saveData($pathFile, $data, $lifetime);
+        $pathToFile = $dir . self::DIR_SEP . \sha1($id, false) . '.' . self::FORMAT;
+        return $this->saveData($pathToFile, $data, $lifetime);
     }
 
     /**
-     *
      * @param string|integer|float $id
      * @param string|integer|float $clasterName
      * @param mixed $data
@@ -227,22 +219,13 @@ final class FileCache
         $clasterName = \strval($clasterName);
         $dir         = $this->getClasterDirByIDAndClasterName($id, $clasterName);
         if (!$this->createDir($dir)) return false;
-        $pathFile = $dir . self::DIR_SEP . \sha1($id, false) . '.' . self::FORMAT;
-        return $this->saveData($pathFile, $data, $lifetime);
+        $pathToFile = $dir . self::DIR_SEP . \sha1($id, false) . '.' . self::FORMAT;
+        return $this->saveData($pathToFile, $data, $lifetime);
     }
 
     // ------------------------------------------------------------------
     // protected
     // ------------------------------------------------------------------
-
-    protected function unlink(string $pathToFile): void
-    {
-        if (!\is_file($pathToFile)) return;
-        try {
-            @\unlink($pathToFile);
-        } catch (\Throwable $e) {
-        }
-    }
 
     /**
      * Fetches a directory to store the cache data
@@ -281,7 +264,7 @@ final class FileCache
             self::DIR_SEP,
             [
                 $this->getClasterDir(),
-                \sha1(\strval($name), false),
+                \sha1($name, false),
             ]
         );
     }
@@ -298,8 +281,7 @@ final class FileCache
     {
         $directory = $this->getClasterDirByIDAndClasterName($id, $clasterName);
         $hash      = \sha1($id, false);
-        $file      = $directory . self::DIR_SEP . $hash . '.' . self::FORMAT;
-        return $file;
+        return $directory . self::DIR_SEP . $hash . '.' . self::FORMAT;
     }
 
     /**
@@ -336,10 +318,10 @@ final class FileCache
     /**
      * @param mixed $data
      */
-    protected function saveData(string $pathFile, $data, int $lifetime): bool
+    protected function saveData(string $pathToFile, $data, int $lifetime): bool
     {
         if ($data === null) return false;
-        $dir        = \dirname($pathFile);
+        $dir        = \dirname($pathToFile);
         $serialized = \serialize($data);
 
         $pathToTmpFile = $dir . self::DIR_SEP . \uniqid('', true);
@@ -353,7 +335,7 @@ final class FileCache
 
         @\touch($pathToTmpFile, $lifetime + \time());
 
-        if (\rename($pathToTmpFile, $pathFile) === false) {
+        if (\rename($pathToTmpFile, $pathToFile) === false) {
             $this->unlink($pathToTmpFile);
             return false;
         }
@@ -361,16 +343,37 @@ final class FileCache
         return true;
     }
 
-    /**
-     * старя реализация
-     */
-    protected function _saveData(string $pathFile, $data, int $lifetime): bool
+    protected function unlink(string $pathToFile): void
     {
-        if ($data === null) return false;
-        $serialized = \serialize($data);
-        $result     = @\file_put_contents($pathFile, $serialized, \LOCK_EX);
-        if ($result === false) return false;
-        return @\touch($pathFile, $lifetime + \time());
+        if (!\is_file($pathToFile)) return;
+        try {
+            @\unlink($pathToFile);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * @param string[] $dirs
+     */
+    protected function unlinkAllFromDirs(array $dirs): void
+    {
+        if (!$dirs) return;
+
+        $files = \array_map(
+            fn(string $dir) => \glob($dir . '/*.' . self::FORMAT),
+            $dirs
+        );
+        $files = \array_filter(
+            $files,
+            static fn($globResult) => \is_array($globResult)
+        );
+        $files = \array_merge(...$files);
+        \array_map(
+            function (string $pathToFile) {
+                $this->unlink($pathToFile);
+            },
+            $files
+        );
     }
 
     /**
@@ -378,12 +381,15 @@ final class FileCache
      */
     protected function getAllDir(): array
     {
-        return $this->getDirRecursive(
+        return $this->getFileRecursive(
             $this->getCacheDir(),
             [
                 new FilterLenFileName(2),
                 new FilterOnlyDir,
-                new FilterRegexByPath('#[\\\/]{1}' . \preg_quote(self::CLASTER_DIR) . '[\\\/]{1}#'),
+                new FilterRegexByPath(
+                    '#[\\\/]{1}' . \preg_quote(self::CLASTER_DIR) . '[\\\/]{1}#',
+                    true
+                ),
             ]
         );
     }
@@ -393,7 +399,7 @@ final class FileCache
      */
     protected function getAllClasterDir(): array
     {
-        return $this->getDirRecursive(
+        return $this->getFileRecursive(
             $this->getClasterDir(),
             [
                 new FilterLenFileName(2),
@@ -407,7 +413,7 @@ final class FileCache
     // ------------------------------------------------------------------
 
     /**
-     * @return \RecursiveIteratorIterator<\SplFileInfo>|null
+     * @return \RecursiveIteratorIterator<\RecursiveDirectoryIterator>|null
      */
     protected function getIteratorByDir(string $dir): ?\RecursiveIteratorIterator
     {
@@ -432,7 +438,7 @@ final class FileCache
      * @param FilterInterface[] $filters
      * @return string[]
      */
-    protected function getDirRecursive(string $dir, array $filters = []): array
+    protected function getFileRecursive(string $dir, array $filters = []): array
     {
         $iteratorIterator = $this->getIteratorByDir($dir);
         if ($iteratorIterator === null) return [];

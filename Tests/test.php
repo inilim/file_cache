@@ -12,5 +12,8 @@ Dump::init();
 
 $obj = new FileCache(__DIR__ . '/../cache');
 
+// $obj->saveToClaster('dawd', 'claster', 123);
 
-$obj->deleteAll(true);
+$res = $obj->deleteAllByNameFromClaster('claster');
+
+de($res);
